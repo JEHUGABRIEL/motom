@@ -1,12 +1,16 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, LayoutGrid, type LucideIcon } from "lucide-react";
 import { site } from "../data/site";
 import { poles } from "../data/poles";
 import { usePublicServices } from "../lib/api";
 
-// Une icône par pôle, dans l'ordre des services du back-office
-const serviceIcons = poles.map((p) => p.icon);
+// Les services seedés portent l'identifiant de leur pôle : on leur rend l'icône
+// et l'ordre de l'affiche. Un service ajouté au back-office passe en fin de liste.
+const poleRank = (id?: string) => {
+  const i = poles.findIndex((p) => p.slug === id);
+  return i === -1 ? poles.length : i;
+};
 
 export default function Services() {
   const { t } = useTranslation();
@@ -20,8 +24,10 @@ export default function Services() {
         text: string;
         points: string[];
       }[])
-    : apiServices.map((s) => ({ title: s.title, text: s.text, points: s.points }))
-  );
+    : [...apiServices]
+        .sort((a, b) => poleRank(a.id) - poleRank(b.id))
+        .map((s) => ({ id: s.id, title: s.title, text: s.text, points: s.points }))
+  ) as { id?: string; title: string; text: string; points: string[] }[];
 
   return (
     <div>
@@ -46,7 +52,9 @@ export default function Services() {
       <section className="py-24 bg-white">
         <div className="container-page grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {services.map((s, i) => {
-            const Icon = serviceIcons[i % serviceIcons.length];
+            // Sans identifiant (textes de secours), l'ordre suit celui des pôles
+            const Icon: LucideIcon =
+              poles[s.id ? poleRank(s.id) : i]?.icon ?? LayoutGrid;
             return (
               <div
                 key={s.title}
