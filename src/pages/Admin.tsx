@@ -2059,6 +2059,7 @@ function PropertyFormModal({
     image: property?.image || "",
     gallery: property?.gallery?.length ? property.gallery : [],
     promo: property?.promo || false,
+    featured: property?.featured || false,
     promoEndsAt: isoToDatetimeLocal(property?.promoEndsAt),
   });
   const [uploading, setUploading] = useState(false);
@@ -2144,7 +2145,7 @@ function PropertyFormModal({
       bedrooms: form.bedrooms,
       bathrooms: form.bathrooms,
       area: form.area,
-      featured: property?.featured || false,
+      featured: form.featured,
       promo: form.promo,
       promoEndsAt: form.promo ? promoEndsAtToIso(form.promoEndsAt) : null,
       image: mainImage,
@@ -2403,6 +2404,24 @@ function PropertyFormModal({
           </div>
 
           
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={form.featured}
+              onClick={() => setForm((f) => ({ ...f, featured: !f.featured }))}
+              className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
+                form.featured ? "bg-gold border-gold text-navy" : "border-white/30 text-transparent hover:border-gold"
+              }`}
+            >
+              <CheckSquare size={15} />
+            </button>
+            <div>
+              <p className="text-sm font-semibold text-white">Mettre ce bien en vedette</p>
+              <p className="text-xs text-white/50">Il apparaîtra dans la section « en vedette » de l'accueil.</p>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-gold/10 border border-gold/25">
             <div className="flex items-center gap-3">
               <button
@@ -2784,6 +2803,7 @@ function VehicleFormModal({
     withDriver: vehicle?.withDriver || false,
     available: vehicle?.available !== false,
     promo: vehicle?.promo || false,
+    featured: vehicle?.featured || false,
     promoEndsAt: isoToDatetimeLocal(vehicle?.promoEndsAt),
     gallery: vehicle?.gallery?.length ? vehicle.gallery : vehicle?.image ? [vehicle.image] : [],
   });
@@ -2862,7 +2882,7 @@ function VehicleFormModal({
       price: form.price,
       priceUnit: form.type === "Location" ? "FCFA/jour" : "FCFA",
       city: form.city,
-      featured: vehicle?.featured || false,
+      featured: form.featured,
       promo: form.promo,
       promoEndsAt: form.promo ? promoEndsAtToIso(form.promoEndsAt) : null,
       available: form.available,
@@ -3048,6 +3068,24 @@ function VehicleFormModal({
           </div>
 
           
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={form.featured}
+              onClick={() => setForm((f) => ({ ...f, featured: !f.featured }))}
+              className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
+                form.featured ? "bg-gold border-gold text-navy" : "border-white/30 text-transparent hover:border-gold"
+              }`}
+            >
+              <CheckSquare size={15} />
+            </button>
+            <div>
+              <p className="text-sm font-semibold text-white">Mettre ce véhicule en vedette</p>
+              <p className="text-xs text-white/50">Il apparaîtra dans la section « en vedette » de l'accueil.</p>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-gold/10 border border-gold/25">
             <div className="flex items-center gap-3">
               <button
@@ -4364,6 +4402,94 @@ type Review = {
   created_at: string;
 };
 
+// Saisie d'un témoignage client par l'agence : créé puis publié directement
+function AddReviewForm({ onAdded }: { onAdded: () => void }) {
+  const { success, error } = useToast();
+  const [author, setAuthor] = useState("");
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ author, rating, comment }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.id) throw new Error(data.error || "Ajout impossible");
+      const publish = await fetch(`/api/reviews/${data.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "approved" }),
+      });
+      if (!publish.ok) throw new Error("Avis enregistré mais non publié : validez-le dans la liste.");
+      success("Témoignage publié");
+      setAuthor("");
+      setRating(5);
+      setComment("");
+      onAdded();
+    } catch (err) {
+      error(err instanceof Error ? err.message : "Ajout impossible");
+      onAdded();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputCls =
+    "w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-gold transition-all";
+
+  return (
+    <form onSubmit={submit} className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-5 space-y-4">
+      <p className="text-sm font-semibold text-white">Ajouter un témoignage client</p>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4">
+        <input
+          required
+          maxLength={80}
+          placeholder="Nom du client (ex. Jean-Marc K.)"
+          value={author}
+          onChange={(e) => setAuthor(e.target.value)}
+          className={inputCls}
+        />
+        <div className="flex items-center gap-1" role="radiogroup" aria-label="Note">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <button
+              key={i}
+              type="button"
+              role="radio"
+              aria-checked={rating === i}
+              aria-label={`${i} étoile${i > 1 ? "s" : ""}`}
+              onClick={() => setRating(i)}
+            >
+              <Star size={20} className={i <= rating ? "text-gold fill-gold" : "text-white/20"} />
+            </button>
+          ))}
+        </div>
+      </div>
+      <textarea
+        required
+        rows={3}
+        maxLength={1000}
+        placeholder="Le témoignage, tel que le client l'a formulé"
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        className={`${inputCls} resize-none`}
+      />
+      <button
+        type="submit"
+        disabled={saving}
+        className="px-5 py-2.5 rounded-xl bg-gold text-navy text-sm font-semibold hover:bg-gold-light disabled:opacity-60 transition-all"
+      >
+        {saving ? "Publication…" : "Publier le témoignage"}
+      </button>
+    </form>
+  );
+}
+
 function ReviewsPage() {
   const { success, error } = useToast();
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -4456,9 +4582,11 @@ function ReviewsPage() {
       <div>
         <h1 className="font-display font-bold text-white text-xl sm:text-2xl">Avis clients</h1>
         <p className="text-sm text-white/40 mt-1">
-          Les avis publiés sur le site apparaissent ici. Validez ceux que vous souhaitez afficher.
+          Les avis publiés apparaissent sur l'accueil. Saisissez ici les témoignages reçus de vos clients (WhatsApp, téléphone, à l'agence).
         </p>
       </div>
+
+      <AddReviewForm onAdded={load} />
 
       <div className="flex items-center gap-2 flex-wrap">
         {filterBtn("all", "Tous")}

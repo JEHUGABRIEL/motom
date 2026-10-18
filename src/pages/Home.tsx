@@ -47,13 +47,11 @@ export default function Home() {
   const faqItems = apiFaqs.length > 0 ? apiFaqs : [];
   const featuredVehicles = allVehicles.filter((v) => v.featured);
   const featuredProperties = featuredProps.length > 0 ? featuredProps : allProperties.filter((p) => p.featured);
-  const latest = (type: "Vente" | "Location") =>
-    featuredProperties
-      .filter((p) => p.type === type)
-      .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
-      .slice(0, 4);
-  const saleProperties = latest("Vente");
-  const rentalProperties = latest("Location");
+  // « En vedette » : uniquement les annonces cochées au back-office
+  const spotlightProperties = featuredProperties
+    .filter((p) => p.featured)
+    .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+    .slice(0, 6);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -231,76 +229,47 @@ export default function Home() {
         </div>
       </section>
 
-      {saleProperties.length > 0 && (
-      <section className="py-16 bg-cream">
-        <div className="container-page">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
-            <SectionHeading
-              title={t("home.sale.title")}
-              description={t("home.sale.description")}
-            />
-            <Link
-              to="/biens-a-vendre"
-              className="hidden md:flex items-center gap-2 text-navy font-semibold hover:text-gold-dark transition-colors shrink-0"
-            >
-              {t("common.seeAll")} <ArrowRight size={18} />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {saleProperties.map((p, i) => (
-                <div key={p.id} className={i === 3 ? "lg:hidden" : ""}>
-                  <PropertyCard property={p} />
-                </div>
-              ))}
-          </div>
-
-          <div className="mt-10 md:hidden text-center">
-            <Link
-              to="/biens-a-vendre"
-              className="inline-flex items-center gap-2 text-navy font-semibold"
-            >
-              {t("common.seeAll")} <ArrowRight size={18} />
-            </Link>
-          </div>
-        </div>
-      </section>
-      )}
-
-      {rentalProperties.length > 0 && (
-      <section className="py-16 bg-white">
-        <div className="container-page">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
-            <SectionHeading
-              title={t("home.rental.title")}
-              description={t("home.rental.description")}
-            />
-            <Link
-              to="/biens-a-louer"
-              className="hidden md:flex items-center gap-2 text-navy font-semibold hover:text-gold-dark transition-colors shrink-0"
-            >
-              {t("common.seeAll")} <ArrowRight size={18} />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-14 [&>*:only-child]:col-span-full [&>*:only-child]:max-w-md [&>*:only-child]:mx-auto">
-            {rentalProperties.map((p, i) => (
-                <div key={p.id} className={i === 3 ? "lg:hidden" : ""}>
-                  <PropertyCard property={p} />
-                </div>
-              ))}
-          </div>
-
-        </div>
-      </section>
-      )}
-
       {}
       <section className="py-16 bg-cream">
         <div className="container-page">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
             <SectionHeading
-              title={t("home.fleet.title")}
+              title={t("home.featured.propertiesTitle")}
+              description={t("home.featured.propertiesText")}
+            />
+            <Link
+              to="/biens-a-vendre"
+              className="hidden md:flex items-center gap-2 text-navy font-semibold hover:text-gold-dark transition-colors shrink-0"
+            >
+              {t("common.seeAll")} <ArrowRight size={18} />
+            </Link>
+          </div>
+
+          {spotlightProperties.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {spotlightProperties.map((p) => (
+                <div key={p.id} className="relative">
+                  <div className="absolute top-14 left-4 z-20">
+                    <Badge variant="navy" size="sm" icon={Star}>
+                      {t("home.featured.badge")}
+                    </Badge>
+                  </div>
+                  <PropertyCard property={p} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <FeaturedEmpty text={t("home.featured.propertiesEmpty")} />
+          )}
+        </div>
+      </section>
+
+      {}
+      <section className="py-16 bg-white">
+        <div className="container-page">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
+            <SectionHeading
+              title={t("home.featured.vehiclesTitle")}
               description={t("home.fleet.description")}
             />
             <Link
@@ -311,6 +280,11 @@ export default function Home() {
             </Link>
           </div>
 
+          {featuredVehicles.length === 0 && (
+            <div className="mb-10">
+              <FeaturedEmpty text={t("home.featured.vehiclesEmpty")} />
+            </div>
+          )}
           {featuredVehicles.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
             {featuredVehicles
@@ -366,7 +340,7 @@ export default function Home() {
       </section>
 
       {}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-cream">
         <div className="container-page grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
             <SectionHeading
@@ -477,6 +451,29 @@ export default function Home() {
           </Link>
         </div>
       </section>
+    </div>
+  );
+}
+
+// Encadré affiché tant qu'aucune annonce n'est mise en vedette au back-office
+function FeaturedEmpty({ text }: { text: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="rounded-2xl border-2 border-dashed border-gold/50 bg-white p-10 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+      <div className="flex items-center gap-4">
+        <span className="w-12 h-12 rounded-full bg-gold flex items-center justify-center shrink-0">
+          <Star size={20} className="text-navy" />
+        </span>
+        <p className="text-slate max-w-xl">{text}</p>
+      </div>
+      <a
+        href={site.whatsappHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="bg-navy text-white font-semibold px-6 py-3 rounded-full hover:bg-gold hover:text-navy transition-colors shrink-0"
+      >
+        {t("common.whatsapp", { number: site.whatsapp })}
+      </a>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Star, Quote, Send, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, Quote, ChevronLeft, ChevronRight } from "lucide-react";
 import SectionHeading from "./SectionHeading";
 
 type Review = {
@@ -41,14 +41,6 @@ export default function ReviewsSection() {
   const { t } = useTranslation();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [author, setAuthor] = useState("");
-  const [avatar, setAvatar] = useState("");
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
-  const [hoverRating, setHoverRating] = useState(0);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
 
   const load = () => {
@@ -62,45 +54,6 @@ export default function ReviewsSection() {
   useEffect(() => {
     load();
   }, []);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!author.trim()) {
-      setError(t("home.reviews.errorName"));
-      return;
-    }
-    if (rating < 1) {
-      setError(t("home.reviews.errorRating"));
-      return;
-    }
-    if (!comment.trim()) {
-      setError(t("home.reviews.errorComment"));
-      return;
-    }
-    setSending(true);
-    try {
-      const res = await fetch("/api/reviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ author, avatar, rating, comment }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        setDone(true);
-        setAuthor("");
-        setAvatar("");
-        setRating(0);
-        setComment("");
-      } else {
-        setError(data.error || t("home.reviews.errorSend"));
-      }
-    } catch {
-      setError(t("home.reviews.errorSend"));
-    } finally {
-      setSending(false);
-    }
-  };
 
   const stars = (n: number, big = false) => (
     <span className="flex items-center gap-0.5">
@@ -117,6 +70,9 @@ export default function ReviewsSection() {
   const nextSlide = () => setSlideIndex((i) => (i + 1) % Math.max(reviews.length, 1));
   const prevSlide = () => setSlideIndex((i) => (i - 1 + Math.max(reviews.length, 1)) % Math.max(reviews.length, 1));
 
+  // Sans avis publié, la section n'apparaît pas (aucun formulaire public)
+  if (loading || reviews.length === 0) return null;
+
   return (
     <section className="py-16 bg-white">
       <div className="container-page">
@@ -126,22 +82,12 @@ export default function ReviewsSection() {
           description={t("home.testimonials.description")}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 mt-14">
-          {}
-          <div className="lg:col-span-2">
-            {loading ? (
-              <div className="flex items-center justify-center py-16 text-slate text-sm">
-                {t("home.reviews.loading")}
-              </div>
-            ) : reviews.length === 0 ? (
-              <div className="flex items-center justify-center py-16 text-slate text-sm">
-                {t("home.reviews.empty")}
-              </div>
-            ) : (
+        <div className="mt-14">
+          <div>
               <>
                 {}
-                <div className="hidden lg:grid grid-cols-2 gap-6">
-                  {reviews.slice(0, 4).map((r) => (
+                <div className="hidden lg:grid grid-cols-3 gap-6">
+                  {reviews.slice(0, 6).map((r) => (
                     <div
                       key={r.id}
                       className="bg-cream rounded-2xl p-7 border border-navy/5 relative"
@@ -233,116 +179,8 @@ export default function ReviewsSection() {
                   </div>
                 </div>
               </>
-            )}
           </div>
 
-          {}
-          <div className="bg-navy rounded-2xl p-8 text-white h-fit lg:sticky lg:top-24">
-            <h3 className="font-display font-semibold text-lg mb-1">
-              {t("home.reviews.formTitle")}
-            </h3>
-            <p className="text-white/50 text-sm mb-6">
-              {t("home.reviews.formSubtitle")}
-            </p>
-
-            {done ? (
-              <div className="text-center py-8">
-                <CheckCircle2 size={36} className="text-green-400 mx-auto mb-4" />
-                <p className="text-white/80 text-sm mb-6">
-                  {t("home.reviews.thanks")}
-                </p>
-                <button
-                  onClick={() => setDone(false)}
-                  className="px-5 py-2.5 rounded-xl bg-gold hover:bg-gold-light text-navy font-semibold text-sm transition-all"
-                >
-                  {t("home.reviews.another")}
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={submit} className="space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5 block">
-                    {t("home.reviews.name")}
-                  </label>
-                  <input
-                    value={author}
-                    onChange={(e) => setAuthor(e.target.value)}
-                    placeholder={t("home.reviews.namePlaceholder")}
-                    className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-gold transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5 block">
-                    {t("home.reviews.avatar")}
-                  </label>
-                  <input
-                    value={avatar}
-                    onChange={(e) => setAvatar(e.target.value)}
-                    placeholder={t("home.reviews.avatarPlaceholder")}
-                    className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-gold transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5 block">
-                    {t("home.reviews.rating")}
-                  </label>
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setRating(i)}
-                        onMouseEnter={() => setHoverRating(i)}
-                        onMouseLeave={() => setHoverRating(0)}
-                        className="p-0.5"
-                        aria-label={`${i} étoiles`}
-                      >
-                        <Star
-                          size={24}
-                          className={
-                            i <= (hoverRating || rating)
-                              ? "text-gold fill-gold"
-                              : "text-white/20"
-                          }
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5 block">
-                    {t("home.reviews.comment")}
-                  </label>
-                  <textarea
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    placeholder={t("home.reviews.commentPlaceholder")}
-                    rows={4}
-                    className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-gold transition-all resize-none"
-                  />
-                </div>
-
-                {error && (
-                  <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 rounded-xl px-4 py-3">
-                    <AlertCircle size={15} />
-                    {error}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={sending}
-                  className="w-full flex items-center justify-center gap-2 bg-gold hover:bg-gold-light disabled:opacity-60 text-navy font-semibold py-3 rounded-xl transition-all"
-                >
-                  <Send size={16} />
-                  {sending ? t("home.reviews.sending") : t("home.reviews.send")}
-                </button>
-              </form>
-            )}
-          </div>
         </div>
       </div>
     </section>
