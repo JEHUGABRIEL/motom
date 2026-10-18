@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Barlow", system-ui, sans-serif;
+  --font-sans: "Barlow", system-ui, sans-serif;
+
+  /* Charte MOTOM (affiche officielle) : noir, jaune, blanc.
+     Les noms historiques des jetons sont conservés : « navy » porte le noir
+     de la marque et « gold » son jaune. */
+  --color-navy: #141414;
+  --color-navy-light: #2A2A2A;
+  --color-navy-dark: #050505;
+
+  --color-gold: #FFC20E;
+  --color-gold-light: #FFD54F;
+  --color-gold-dark: #8F6B00;
+
+  --color-green: #1E8449;
+  --color-green-dark: #14663A;
+
+  --color-ink: #141414;
+  --color-charcoal: #1F1F1F;
+  --color-slate: #4B5057;
+  --color-cream: #FFF8E1;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background-color: #FFFFFF;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.container-page {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fade-up 0.7s ease both;
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes progress {
+  0% { width: 0%; }
+  50% { width: 60%; }
+  100% { width: 100%; }
+}
+.animate-progress {
+  animation: progress 2s ease-in-out infinite;
+}
+
+::selection {
+  background-color: #FFC20E;
+  color: #141414;
+}
+
+/* Select du back-office : fond bleu, texte blanc, hover jaune.
+   Les <option> sont stylés individuellement pour éviter le texte
+   illisible (blanc sur fond clair) selon le navigateur. */
+.bo-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--color-navy-light);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23FFC20E' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 40px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.bo-select:hover {
+  background-color: var(--color-gold);
+  color: var(--color-navy);
+}
+.bo-select:focus {
+  outline: none;
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px rgba(255, 194, 14, 0.25);
+}
+.bo-select option {
+  background-color: var(--color-navy);
+  color: #ffffff;
+}
+.bo-select option:hover {
+  background-color: var(--color-gold);
+  color: var(--color-navy);
+}
+
+/* Select de filtre avec chevron doré */
+.select-filter {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238F6B00' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 42px;
+  cursor: pointer;
+}
