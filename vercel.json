@@ -1,4 +1,5 @@
 {
+  "framework": "vite",
   "rewrites": [
     { "source": "/api/mfa", "destination": "/api/auth?mfa=1" },
     { "source": "/api/messages/:id", "destination": "/api/messages?id=:id" },
