@@ -26,9 +26,13 @@ export const site = {
     niu: "",
     rccm: "",
   },
+  // Réseaux sociaux : chaque icône du pied de page n'apparaît qu'avec son lien
   social: {
     facebook: "",
     instagram: "",
+    tiktok: "",
+    youtube: "",
+    linkedin: "",
   },
   mapsEmbed:
     "https://www.google.com/maps?q=PK11+Bangui,+Central+African+Republic&output=embed",

@@ -19,6 +19,7 @@ import ProgressiveImage from "../components/ProgressiveImage";
 import Badge from "../components/Badge";
 import ReviewsSection from "../components/ReviewsSection";
 import PolesGrid from "../components/PolesGrid";
+import OfferCards from "../components/OfferCards";
 import { useProperties, useFeaturedProperties, useVehicles, usePublicFaqs } from "../lib/api";
 import { site } from "../data/site";
 import { getPoleBySlug, poles } from "../data/poles";
@@ -259,7 +260,7 @@ export default function Home() {
               ))}
             </div>
           ) : (
-            <FeaturedEmpty text={t("home.featured.propertiesEmpty")} />
+            <OfferCards kind="properties" />
           )}
         </div>
       </section>
@@ -282,7 +283,7 @@ export default function Home() {
 
           {featuredVehicles.length === 0 && (
             <div className="mb-10">
-              <FeaturedEmpty text={t("home.featured.vehiclesEmpty")} />
+              <OfferCards kind="vehicles" />
             </div>
           )}
           {featuredVehicles.length > 0 && (
@@ -451,29 +452,6 @@ export default function Home() {
           </Link>
         </div>
       </section>
-    </div>
-  );
-}
-
-// Encadré affiché tant qu'aucune annonce n'est mise en vedette au back-office
-function FeaturedEmpty({ text }: { text: string }) {
-  const { t } = useTranslation();
-  return (
-    <div className="rounded-2xl border-2 border-dashed border-gold/50 bg-white p-10 flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
-      <div className="flex items-center gap-4">
-        <span className="w-12 h-12 rounded-full bg-gold flex items-center justify-center shrink-0">
-          <Star size={20} className="text-navy" />
-        </span>
-        <p className="text-slate max-w-xl">{text}</p>
-      </div>
-      <a
-        href={site.whatsappHref}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="bg-navy text-white font-semibold px-6 py-3 rounded-full hover:bg-gold hover:text-navy transition-colors shrink-0"
-      >
-        {t("common.whatsapp", { number: site.whatsapp })}
-      </a>
     </div>
   );
 }
