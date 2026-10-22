@@ -1,71 +1,44 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  ChevronDown,
-  X,
-  Home,
-  Info,
-  ShoppingBag,
-  KeyRound,
-  Phone,
-  LayoutGrid,
-  Sun,
-} from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import Logo from "./Logo";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { site } from "../data/site";
 import { poles } from "../data/poles";
 
-type SubLink = { to: string; key: string; icon: React.ReactNode };
+type SubLink = { to: string; key: string };
 
 export default function Navbar() {
   const { t } = useTranslation();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState<string | null>(null);
-  const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const location = useLocation();
 
-  const mainLinks = [
-    { to: "/", key: "home", icon: <Home size={18} /> },
-    { to: "/a-propos", key: "about", icon: <Info size={18} /> },
-  ];
-
-  const menus: {
-    id: string;
-    key: string;
-    icon: React.ReactNode;
-    links: SubLink[];
-  }[] = [
+  const menus: { id: string; key: string; links: SubLink[] }[] = [
     {
       id: "immobilier",
       key: "properties",
-      icon: <Home size={18} />,
       links: [
-        { to: "/biens-a-vendre", key: "buy", icon: <ShoppingBag size={14} /> },
-        { to: "/biens-a-louer", key: "rent", icon: <KeyRound size={14} /> },
-        { to: "/biens-a-louer?saison=1", key: "seasonal", icon: <Sun size={14} /> },
+        { to: "/biens-a-vendre", key: "buy" },
+        { to: "/biens-a-louer", key: "rent" },
+        { to: "/biens-a-louer?saison=1", key: "seasonal" },
       ],
     },
     {
       id: "services",
       key: "services",
-      icon: <LayoutGrid size={18} />,
       links: [
         ...poles
           .filter((p) => p.slug !== "immobilier")
-          .map((p) => ({
-            to: p.to,
-            key: `poles.${p.slug}`,
-            icon: <p.icon size={14} />,
-          })),
-        { to: "/services", key: "allServices", icon: <LayoutGrid size={14} /> },
+          .map((p) => ({ to: p.to, key: `poles.${p.slug}` })),
+        { to: "/services", key: "allServices" },
       ],
     },
   ];
 
-  
   const isSubActive = (to: string) => {
     const [path, query] = to.split("?");
     if (query) return location.pathname === path && location.search === `?${query}`;
@@ -77,16 +50,14 @@ export default function Navbar() {
 
   const isMenuActive = (id: string) =>
     id === "immobilier"
-      ? location.pathname.startsWith("/biens-") ||
-        location.pathname.startsWith("/proprietes")
+      ? location.pathname.startsWith("/biens-") || location.pathname.startsWith("/proprietes")
       : menus.find((m) => m.id === id)!.links.some((l) => isSubActive(l.to));
 
-  // Sous-liens : clés du menu (navbar.*) ou titre d'un pôle (poles.*)
   const subLabel = (key: string) =>
     key.startsWith("poles.") ? t(`${key}.title`) : t(`navbar.${key}`);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
@@ -95,79 +66,73 @@ export default function Navbar() {
   useEffect(() => {
     setOpen(false);
     setMobileMenu(null);
-  }, [location.pathname]);
+    setOpenMenu(null);
+  }, [location.pathname, location.search]);
 
   return (
     <header
-      className={`fixed top-0 inset-x-0 z-50 bg-white transition-shadow duration-300 ${
-        scrolled ? "shadow-sm" : ""
+      className={`fixed inset-x-0 top-0 z-50 border-b bg-white transition-colors duration-300 ${
+        scrolled ? "border-line" : "border-transparent"
       }`}
     >
       <div className="container-page">
-        <div className="flex items-center justify-between h-20">
-          <Link to="/">
+        <div className="flex h-20 items-center justify-between">
+          <Link to="/" aria-label={site.name}>
             <Logo showTagline={false} />
           </Link>
 
-          {}
-          <nav className="hidden lg:flex items-center gap-8">
+          <nav className="hidden items-center gap-7 lg:flex">
             <NavLink
               to="/"
               end
               className={({ isActive }) =>
-                `relative text-sm font-medium tracking-wide transition-colors ${
-                  isActive ? "text-navy" : "text-slate hover:text-navy"
-                } after:content-[''] after:absolute after:-bottom-1.5 after:left-0 after:h-[2px] after:bg-gold after:transition-all ${
-                  isActive ? "after:w-full" : "after:w-0 hover:after:w-full"
+                `text-[0.875rem] transition-colors ${
+                  isActive ? "font-semibold text-ink" : "text-slate hover:text-ink"
                 }`
               }
             >
               {t("navbar.home")}
             </NavLink>
 
-            {}
             {menus.map((menu) => {
               const active = isMenuActive(menu.id);
-              const hovered = hoveredMenu === menu.id;
+              const hovered = openMenu === menu.id;
               return (
                 <div
                   key={menu.id}
-                  className="relative group"
-                  onMouseEnter={() => setHoveredMenu(menu.id)}
-                  onMouseLeave={() => setHoveredMenu(null)}
+                  className="relative"
+                  onMouseEnter={() => setOpenMenu(menu.id)}
+                  onMouseLeave={() => setOpenMenu(null)}
                 >
                   <button
-                    className={`relative text-sm font-medium tracking-wide transition-colors flex items-center gap-1 ${
-                      active ? "text-navy" : "text-slate hover:text-navy"
-                    } after:content-[''] after:absolute after:-bottom-1.5 after:left-0 after:h-[2px] after:bg-gold after:transition-all ${
-                      active ? "after:w-full" : "after:w-0 group-hover:after:w-full"
+                    className={`flex items-center gap-1 text-[0.875rem] transition-colors ${
+                      active ? "font-semibold text-ink" : "text-slate hover:text-ink"
                     }`}
+                    aria-expanded={hovered}
                   >
                     {t(`navbar.${menu.key}`)}
                     <ChevronDown
-                      size={14}
-                      className={`transition-transform duration-200 ${
-                        hovered ? "rotate-180" : ""
-                      }`}
+                      size={13}
+                      className={`transition-transform duration-200 ${hovered ? "rotate-180" : ""}`}
                     />
                   </button>
 
                   <div
-                    className={`absolute top-full left-1/2 -translate-x-1/2 pt-3 transition-all duration-200 ${
+                    className={`absolute left-0 top-full pt-4 transition-all duration-200 ${
                       hovered
-                        ? "opacity-100 visible translate-y-0"
-                        : "opacity-0 invisible -translate-y-2"
+                        ? "visible translate-y-0 opacity-100"
+                        : "invisible -translate-y-1 opacity-0"
                     }`}
                   >
-                    <div className="bg-white rounded-xl shadow-[0_8px_32px_rgba(20,20,20,0.14)] border border-navy/5 py-2 min-w-[230px]">
+                    <div className="min-w-[220px] rounded-xl border border-line bg-white py-2">
                       {menu.links.map((sl) => (
                         <Link
                           key={sl.to}
                           to={sl.to}
-                          className={`block px-5 py-2.5 text-sm font-medium transition-colors ${
+                          className={`block px-5 py-2.5 text-[0.875rem] transition-colors ${
                             isSubActive(sl.to)
-                              ? "text-gold-dark bg-gold/5"
-                              : "text-slate hover:text-navy hover:bg-navy/[0.02]"
+                              ? "font-medium text-ink"
+                              : "text-slate hover:bg-cream hover:text-ink"
                           }`}
                         >
                           {subLabel(sl.key)}
@@ -179,227 +144,135 @@ export default function Navbar() {
               );
             })}
 
-            {}
-            {mainLinks.filter((l) => l.to !== "/").map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                className={({ isActive }) =>
-                  `relative text-sm font-medium tracking-wide transition-colors ${
-                    isActive ? "text-navy" : "text-slate hover:text-navy"
-                  } after:content-[''] after:absolute after:-bottom-1.5 after:left-0 after:h-[2px] after:bg-gold after:transition-all ${
-                    isActive ? "after:w-full" : "after:w-0 hover:after:w-full"
-                  }`
-                }
-              >
-                {t(`navbar.${l.key}`)}
-              </NavLink>
-            ))}
+            <NavLink
+              to="/vehicules-a-louer"
+              className={({ isActive }) =>
+                `text-[0.875rem] transition-colors ${
+                  isActive ? "font-semibold text-ink" : "text-slate hover:text-ink"
+                }`
+              }
+            >
+              {t("navbar.vehicles")}
+            </NavLink>
+
+            <NavLink
+              to="/a-propos"
+              className={({ isActive }) =>
+                `text-[0.875rem] transition-colors ${
+                  isActive ? "font-semibold text-ink" : "text-slate hover:text-ink"
+                }`
+              }
+            >
+              {t("navbar.about")}
+            </NavLink>
           </nav>
 
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden items-center gap-4 lg:flex">
             <LanguageSwitcher />
-            <Link
-              to="/contact"
-              className="bg-gold hover:bg-gold-light text-navy font-semibold text-sm px-6 py-3 rounded-full transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-gold/20 active:scale-95"
-            >
+            <Link to="/contact" className="btn btn-gold">
               {t("common.contactUs")}
             </Link>
           </div>
 
-          {}
           <button
-            className="lg:hidden relative w-11 h-11 flex items-center justify-center rounded-xl hover:bg-navy/5 transition-colors"
+            className="flex h-11 w-11 items-center justify-center lg:hidden"
             onClick={() => setOpen((o) => !o)}
             aria-label={open ? t("navbar.closeMenu") : t("navbar.openMenu")}
           >
-            <div className="relative w-5 h-5">
-              <span
-                className={`absolute left-0 h-[2px] w-full bg-navy rounded-full transition-all duration-300 ${
-                  open ? "top-1/2 -translate-y-1/2 rotate-45" : "top-0"
-                }`}
-              />
-              <span
-                className={`absolute left-0 h-[2px] w-full bg-navy rounded-full transition-all duration-300 ${
-                  open ? "opacity-0 scale-0" : "top-1/2 -translate-y-1/2"
-                }`}
-              />
-              <span
-                className={`absolute left-0 h-[2px] w-full bg-navy rounded-full transition-all duration-300 ${
-                  open ? "top-1/2 -translate-y-1/2 -rotate-45" : "bottom-0"
-                }`}
-              />
-            </div>
+            {open ? (
+              <X size={22} />
+            ) : (
+              <span className="flex w-5 flex-col gap-1.5">
+                <span className="h-px w-full bg-ink" />
+                <span className="h-px w-full bg-ink" />
+                <span className="h-px w-full bg-ink" />
+              </span>
+            )}
           </button>
         </div>
       </div>
 
-      {}
+      {/* Menu mobile */}
       <div
-        className={`fixed inset-0 bg-navy/40 backdrop-blur-sm transition-all duration-300 z-40 ${
-          open ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
-        }`}
-        onClick={() => setOpen(false)}
-        aria-hidden="true"
-      />
-
-      {}
-      <div
-        className={`fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-2xl z-50 transition-all duration-300 ease-in-out ${
-          open ? "translate-x-0" : "translate-x-full"
+        className={`fixed inset-0 top-20 z-40 overflow-y-auto bg-white transition-all duration-300 lg:hidden ${
+          open ? "visible opacity-100" : "invisible -translate-y-2 opacity-0"
         }`}
       >
-        <div className="flex items-center justify-between px-6 h-20 border-b border-navy/5">
-          <Link to="/" onClick={() => setOpen(false)}>
-            <Logo showTagline={false} />
-          </Link>
-          <button
-            onClick={() => setOpen(false)}
-            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-navy/5 transition-colors"
-            aria-label={t("navbar.closeMenu")}
-          >
-            <X size={22} />
-          </button>
-        </div>
-
-        <nav className="px-6 py-8 flex flex-col gap-1 overflow-y-auto max-h-[calc(100vh-5rem)]">
+        <nav className="container-page flex flex-col py-8">
           <NavLink
             to="/"
             end
             onClick={() => setOpen(false)}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                isActive
-                  ? "bg-gold/10 text-gold-dark font-semibold"
-                  : "text-slate hover:bg-navy/[0.03] hover:text-navy"
+              `border-b border-line py-4 text-[0.95rem] ${
+                isActive ? "font-semibold text-ink" : "text-slate"
               }`
             }
           >
-            <span
-              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                location.pathname === "/"
-                  ? "bg-gold/20 text-gold-dark"
-                  : "bg-navy/5 text-slate"
-              }`}
-            >
-              <Home size={18} />
-            </span>
             {t("navbar.home")}
           </NavLink>
 
-          {}
           {menus.map((menu) => {
-            const active = isMenuActive(menu.id);
             const expanded = mobileMenu === menu.id;
             return (
-              <div key={menu.id} className="px-4 py-1">
+              <div key={menu.id} className="border-b border-line">
                 <button
                   onClick={() => setMobileMenu(expanded ? null : menu.id)}
                   aria-expanded={expanded}
-                  className={`flex items-center justify-between w-full text-sm font-medium transition-colors ${
-                    active ? "text-gold-dark" : "text-slate hover:text-navy"
+                  className={`flex w-full items-center justify-between py-4 text-left text-[0.95rem] ${
+                    isMenuActive(menu.id) ? "font-semibold text-ink" : "text-slate"
                   }`}
                 >
-                  <span className="flex items-center gap-3">
-                    <span className="w-9 h-9 rounded-lg flex items-center justify-center bg-navy/5 text-slate">
-                      {menu.icon}
-                    </span>
-                    {t(`navbar.${menu.key}`)}
-                  </span>
+                  {t(`navbar.${menu.key}`)}
                   <ChevronDown
                     size={16}
-                    className={`transition-transform duration-200 ${
-                      expanded ? "rotate-180" : ""
-                    }`}
+                    className={`transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
                   />
                 </button>
                 <div
-                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                    expanded ? "max-h-96 mt-2" : "max-h-0"
+                  className={`overflow-hidden transition-all duration-300 ${
+                    expanded ? "max-h-96 pb-3" : "max-h-0"
                   }`}
                 >
-                  <div className="ml-12 flex flex-col gap-0.5 border-l-2 border-gold/20 pl-3">
-                    {menu.links.map((sl) => {
-                      const subActive = isSubActive(sl.to);
-                      return (
-                        <Link
-                          key={sl.to}
-                          to={sl.to}
-                          onClick={() => setOpen(false)}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                            subActive
-                              ? "text-gold-dark bg-gold/5"
-                              : "text-slate hover:text-navy hover:bg-navy/[0.02]"
-                          }`}
-                        >
-                          <span
-                            className={`w-6 h-6 rounded-md flex items-center justify-center ${
-                              subActive ? "text-gold-dark" : "text-slate/60"
-                            }`}
-                          >
-                            {sl.icon}
-                          </span>
-                          {subLabel(sl.key)}
-                        </Link>
-                      );
-                    })}
-                  </div>
+                  {menu.links.map((sl) => (
+                    <Link
+                      key={sl.to}
+                      to={sl.to}
+                      onClick={() => setOpen(false)}
+                      className={`block py-2.5 pl-4 text-sm ${
+                        isSubActive(sl.to) ? "text-gold-dark" : "text-slate"
+                      }`}
+                    >
+                      {subLabel(sl.key)}
+                    </Link>
+                  ))}
                 </div>
               </div>
             );
           })}
 
-          {}
-          <div className="my-3 h-px bg-gradient-to-r from-transparent via-navy/10 to-transparent" />
+          <NavLink
+            to="/a-propos"
+            onClick={() => setOpen(false)}
+            className={({ isActive }) =>
+              `border-b border-line py-4 text-[0.95rem] ${
+                isActive ? "font-semibold text-ink" : "text-slate"
+              }`
+            }
+          >
+            {t("navbar.about")}
+          </NavLink>
 
-          {}
-          {mainLinks.filter((l) => l.to !== "/").map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? "bg-gold/10 text-gold-dark font-semibold"
-                    : "text-slate hover:bg-navy/[0.03] hover:text-navy"
-                }`
-              }
-            >
-              <span
-                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                  location.pathname === l.to ||
-                  (l.to !== "/" && location.pathname.startsWith(l.to))
-                    ? "bg-gold/20 text-gold-dark"
-                    : "bg-navy/5 text-slate"
-                }`}
-              >
-                {l.icon}
-              </span>
-              {t(`navbar.${l.key}`)}
-            </NavLink>
-          ))}
-
-          {}
-          <div className="px-4 pt-2">
+          <div className="flex items-center justify-between py-6">
             <LanguageSwitcher />
+            <a href={site.phoneHref} className="text-sm font-medium text-ink">
+              {site.phone}
+            </a>
           </div>
 
-          {}
-          <div className="px-4 pt-1">
-            <Link
-              to="/contact"
-              onClick={() => setOpen(false)}
-              className="flex items-center justify-center gap-2 bg-gold hover:bg-gold-light text-navy font-semibold text-sm px-6 py-3.5 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-gold/20 active:scale-[0.98] w-full"
-            >
-              <Phone size={16} />
-              {t("common.contactUs")}
-            </Link>
-          </div>
-
-          <p className="mt-6 text-center text-[11px] text-slate/40 tracking-wide">
-            {site.name} © {new Date().getFullYear()}
-          </p>
+          <Link to="/contact" onClick={() => setOpen(false)} className="btn btn-gold w-full">
+            {t("common.contactUs")}
+          </Link>
         </nav>
       </div>
     </header>

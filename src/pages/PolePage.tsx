@@ -1,13 +1,12 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, CheckCircle2, MessageCircle } from "lucide-react";
+import { ArrowUpRight, Check, MessageCircle } from "lucide-react";
 import SectionHeading from "../components/SectionHeading";
 import PolesGrid from "../components/PolesGrid";
+import PageHero from "../components/PageHero";
 import { getPoleBySlug, type PoleSlug } from "../data/poles";
 import { site } from "../data/site";
 
-// Page d'un pôle de service sans catalogue (construction, transport,
-// déménagement, décoration) : présentation, prestations, déroulé, devis.
 export default function PolePage({ slug }: { slug: PoleSlug }) {
   const { t } = useTranslation();
   const pole = getPoleBySlug(slug);
@@ -24,84 +23,72 @@ export default function PolePage({ slug }: { slug: PoleSlug }) {
 
   return (
     <div>
-      <section className="relative pt-40 pb-24 bg-navy overflow-hidden">
-        <div className="absolute inset-0 opacity-35">
-          <img src={pole.image} alt={title} className="w-full h-full object-cover" />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-r from-navy via-navy/80 to-navy/30" />
-        <div className="container-page relative z-10">
-          <span className="w-16 h-16 rounded-full bg-gold flex items-center justify-center">
-            <pole.icon size={28} className="text-navy" />
-          </span>
-          <h1 className="font-display font-bold text-white text-4xl md:text-6xl uppercase mt-6 max-w-3xl">
-            {title}
-          </h1>
-          <p className="text-white/75 text-lg max-w-2xl mt-5">{t(`poles.${slug}.short`)}</p>
-          <p className="text-gold font-semibold mt-6">{tags.join(" · ")}</p>
-        </div>
-      </section>
+      <PageHero
+        eyebrow={tags.join(" · ")}
+        title={title}
+        description={t(`poles.${slug}.short`)}
+        crumb={title}
+        image={pole.image}
+        imageAlt={title}
+      />
 
-      <section className="py-20 bg-white">
-        <div className="container-page grid grid-cols-1 lg:grid-cols-2 gap-14 items-start">
+      <section className="py-16 md:py-20">
+        <div className="container-page grid grid-cols-1 gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
           <div>
             <SectionHeading
               title={t(`poles.${slug}.heading`)}
               description={t(`poles.${slug}.text`)}
             />
-            <div className="flex flex-wrap gap-4 mt-10">
-              <Link
-                to={`/contact?sujet=${slug}`}
-                className="bg-gold hover:bg-gold-light text-navy font-semibold px-8 py-4 rounded-full transition-colors flex items-center gap-2"
-              >
-                {t("poles.quote")} <ArrowRight size={18} />
+
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Link to={`/contact?sujet=${slug}`} className="btn btn-dark">
+                {t("poles.quote")} <ArrowUpRight size={15} />
               </Link>
               <a
                 href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="border-2 border-navy/15 hover:border-green hover:text-green text-navy font-semibold px-8 py-4 rounded-full transition-colors flex items-center gap-2"
+                className="btn btn-outline"
               >
-                <MessageCircle size={18} /> {t("poles.whatsappQuote")}
+                <MessageCircle size={15} /> {t("poles.whatsappQuote")}
               </a>
             </div>
           </div>
 
-          <div className="bg-cream rounded-2xl p-8 border border-navy/5">
-            <h2 className="font-display font-bold text-navy text-xl mb-6">
-              {t("poles.services")}
-            </h2>
-            <ul className="space-y-4">
-              {points.map((pt) => (
-                <li key={pt} className="flex items-start gap-3 text-slate">
-                  <CheckCircle2 size={20} className="text-gold-dark shrink-0 mt-0.5" />
-                  {pt}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ul className="grid grid-cols-1 gap-x-10 border-t border-line self-start sm:grid-cols-2">
+            {points.map((pt) => (
+              <li
+                key={pt}
+                className="flex items-start gap-3 border-b border-line py-4 text-[0.875rem] text-slate"
+              >
+                <Check size={15} className="mt-0.5 shrink-0 text-gold-dark" />
+                {pt}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
-      <section className="py-20 bg-navy">
+      <section className="bg-ink py-16 md:py-20">
         <div className="container-page">
           <SectionHeading title={t("poles.steps.title")} light />
-          <ol className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
+          <ol className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
             {steps.map((s, i) => (
-              <li key={s.title} className="border-t-2 border-gold pt-6">
-                <span className="font-display text-gold text-4xl font-bold">
+              <li key={s.title} className="border-t border-white/15 pt-6">
+                <span className="font-display text-[0.8125rem] font-semibold tracking-[0.16em] text-gold">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <h3 className="font-display font-semibold text-white text-lg mt-3">
+                <h3 className="mt-3 font-display text-[1.0625rem] font-semibold text-white">
                   {s.title}
                 </h3>
-                <p className="text-white/60 text-sm leading-relaxed mt-2">{s.text}</p>
+                <p className="mt-2 text-[0.8125rem] leading-relaxed text-white/55">{s.text}</p>
               </li>
             ))}
           </ol>
         </div>
       </section>
 
-      <section className="py-20 bg-cream">
+      <section className="bg-sand py-16 md:py-20">
         <div className="container-page">
           <SectionHeading title={t("poles.others")} />
           <div className="mt-10">

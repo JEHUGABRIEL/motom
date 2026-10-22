@@ -12,9 +12,7 @@ import {
   Mail,
   MessageCircle,
   ArrowLeft,
-  UserCheck,
-  Car,
-  Tag,
+  ArrowUpRight,
   Megaphone,
 } from "lucide-react";
 import { formatVehiclePrice } from "../data/vehicles";
@@ -32,7 +30,6 @@ export default function VehicleDetails() {
   const { data: vehicles = [] } = useVehicles();
   const [activeImage, setActiveImage] = useState(0);
 
-  
   const [contactForm, setContactForm] = useState({ name: "", phone: "", message: "" });
   const [contactSending, setContactSending] = useState(false);
   const [contactSent, setContactSent] = useState(false);
@@ -41,31 +38,21 @@ export default function VehicleDetails() {
 
   if (!vehicle) {
     return (
-      <div className="pt-40 pb-24 text-center container-page">
-        <h1 className="font-display text-3xl font-bold">{t("common.vehicleNotFound")}</h1>
-        <p className="text-slate mt-4">
-          {t("common.vehicleNotFoundText")}
-        </p>
-        <Link
-          to="/vehicules"
-          className="inline-flex items-center gap-2 mt-8 bg-navy text-white px-6 py-3 rounded-full font-semibold"
-        >
-          <ArrowLeft size={16} /> {t("common.backToVehicles")}
+      <div className="container-page pb-24 pt-40 text-center">
+        <h1 className="font-display text-2xl font-bold text-ink">{t("common.vehicleNotFound")}</h1>
+        <p className="mt-3 text-sm text-slate">{t("common.vehicleNotFoundText")}</p>
+        <Link to="/vehicules" className="btn btn-dark mt-8">
+          <ArrowLeft size={15} /> {t("common.backToVehicles")}
         </Link>
       </div>
     );
   }
 
-  
-  
   const sameCategory = vehicles.filter(
-    (v) => v.id !== vehicle.id && v.category === vehicle.category
+    (v) => v.id !== vehicle.id && v.category === vehicle.category,
   );
   const sameType = vehicles.filter(
-    (v) =>
-      v.id !== vehicle.id &&
-      v.category !== vehicle.category &&
-      v.type === vehicle.type
+    (v) => v.id !== vehicle.id && v.category !== vehicle.category && v.type === vehicle.type,
   );
   const similar = [...sameCategory, ...sameType].slice(0, 3);
 
@@ -73,56 +60,73 @@ export default function VehicleDetails() {
     `Bonjour ${site.shortName}, je suis intéressé(e) par le véhicule « ${vehicle.name} » (${vehicle.type.toLowerCase()}).`,
   )}`;
 
+  const submitContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactSending(true);
+    try {
+      await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: contactForm.name,
+          phone: contactForm.phone,
+          subject: t("common.requestAbout", { item: vehicle.name }),
+          message: contactForm.message,
+        }),
+      });
+      setContactSent(true);
+    } catch {
+      alert(t("contact.form.error"));
+    } finally {
+      setContactSending(false);
+    }
+  };
+
   return (
     <div>
-      <section className="pt-32 pb-10 bg-cream">
+      <section className="border-b border-line pb-10 pt-28 md:pt-32">
         <div className="container-page">
           <Link
             to="/vehicules"
-            className="inline-flex items-center gap-2 text-sm text-slate hover:text-navy mb-6"
+            className="mb-7 inline-flex items-center gap-1.5 text-[0.75rem] text-muted transition-colors hover:text-ink"
           >
-            <ArrowLeft size={15} /> {t("common.backToVehicles")}
+            <ArrowLeft size={13} /> {t("common.backToVehicles")}
           </Link>
 
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <Badge
-                  variant="gold"
-                  icon={vehicle.type === "Vente" ? Tag : Car}
-                >
-                  {vehicle.type}
-                </Badge>
-                <Badge variant="navy">{vehicle.category}</Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="eyebrow">
+                  {vehicle.type} · {vehicle.category}
+                  {vehicle.withDriver ? ` · ${t("common.withDriver")}` : ""}
+                </p>
                 {vehicle.promo && (
                   <Badge variant="gold" icon={Megaphone}>
                     {vehicle.promoEndsAt && !isPromoExpired(vehicle.promoEndsAt)
-                      ? t("promo.until", { date: formatPromoEnd(vehicle.promoEndsAt, i18n.language) })
+                      ? t("promo.until", {
+                          date: formatPromoEnd(vehicle.promoEndsAt, i18n.language),
+                        })
                       : t("promo.title")}
                   </Badge>
                 )}
-                {vehicle.promo && (
-                  <PromoCountdownChip promoEndsAt={vehicle.promoEndsAt} />
-                )}
-                {vehicle.withDriver && (
-                  <Badge variant="green" icon={UserCheck}>
-                    {t("common.withDriver")}
-                  </Badge>
-                )}
+                {vehicle.promo && <PromoCountdownChip promoEndsAt={vehicle.promoEndsAt} />}
               </div>
-              <h1 className="font-display font-bold text-3xl md:text-4xl text-navy">
+
+              <h1 className="mt-4 max-w-3xl font-display text-[1.85rem] font-bold leading-tight text-ink md:text-[2.5rem]">
                 {vehicle.name}
               </h1>
-              <p className="flex items-center gap-2 text-slate mt-2">
-                <Calendar size={16} className="text-gold-dark" />
-                {vehicle.brand} — {vehicle.year} · {t("common.availability", { city: vehicle.city })}
+              <p className="mt-3 flex items-center gap-1.5 text-sm text-slate">
+                <Calendar size={14} className="text-muted" />
+                {vehicle.brand} — {vehicle.year} ·{" "}
+                {t("common.availability", { city: vehicle.city })}
               </p>
             </div>
-            <div className="text-left md:text-right shrink-0">
-              <p className="text-sm text-slate">
+
+            <div className="shrink-0 text-left md:text-right">
+              <p className="text-[0.6875rem] uppercase tracking-[0.16em] text-muted">
                 {vehicle.type === "Location" ? t("common.rate") : t("common.price")}
               </p>
-              <p className="font-display font-bold text-2xl md:text-3xl text-gold-dark">
+              <p className="mt-1 font-display text-2xl font-bold text-ink md:text-[1.75rem]">
                 {formatVehiclePrice(vehicle.price, vehicle.priceUnit)}
               </p>
             </div>
@@ -130,29 +134,29 @@ export default function VehicleDetails() {
         </div>
       </section>
 
-      <section className="py-12 bg-white">
+      <section className="py-10">
         <div className="container-page">
-          <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
-            <div className="rounded-2xl overflow-hidden aspect-[16/10]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
+            <div className="aspect-[16/10] overflow-hidden rounded-xl bg-cream">
               <img
                 src={vehicle.gallery[activeImage]}
                 alt={vehicle.name}
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
             </div>
-            <div className="grid grid-cols-3 lg:grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3 lg:grid-cols-2">
               {vehicle.gallery.map((src, i) => (
                 <button
                   key={src}
                   onClick={() => setActiveImage(i)}
-                  className={`rounded-xl overflow-hidden aspect-[4/3] border-2 transition-colors ${
-                    activeImage === i ? "border-gold" : "border-transparent"
+                  className={`aspect-[4/3] overflow-hidden rounded-lg border transition-colors ${
+                    activeImage === i ? "border-ink" : "border-line hover:border-ink/30"
                   }`}
                 >
                   <img
                     src={src}
                     alt={`${t("common.view", { number: i + 1 })} — ${vehicle.name}`}
-                    className="w-full h-full object-cover"
+                    className="h-full w-full object-cover"
                   />
                 </button>
               ))}
@@ -161,159 +165,155 @@ export default function VehicleDetails() {
         </div>
       </section>
 
-      <section className="pb-20 bg-white">
-        <div className="container-page grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-10">
+      <section className="pb-20">
+        <div className="container-page grid grid-cols-1 gap-12 lg:grid-cols-[2fr_1fr]">
           <div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
-              <div className="bg-cream rounded-xl p-5 text-center">
-                <Users className="mx-auto text-gold-dark mb-2" size={22} />
-                <p className="font-semibold text-navy">{vehicle.seats}</p>
-                <p className="text-xs text-slate">{t("vehicleDetails.seats")}</p>
+            <div className="grid grid-cols-2 divide-line border-y border-line sm:grid-cols-4 sm:divide-x">
+              <div className="px-4 py-6">
+                <Users size={18} className="text-muted" />
+                <p className="mt-2 font-display text-lg font-semibold text-ink">{vehicle.seats}</p>
+                <p className="text-[0.6875rem] uppercase tracking-[0.12em] text-muted">
+                  {t("vehicleDetails.seats")}
+                </p>
               </div>
-              <div className="bg-cream rounded-xl p-5 text-center">
-                <Gauge className="mx-auto text-gold-dark mb-2" size={22} />
-                <p className="font-semibold text-navy">{vehicle.transmission}</p>
-                <p className="text-xs text-slate">{t("vehicleDetails.gearbox")}</p>
+              <div className="px-4 py-6">
+                <Gauge size={18} className="text-muted" />
+                <p className="mt-2 font-display text-lg font-semibold text-ink">
+                  {vehicle.transmission}
+                </p>
+                <p className="text-[0.6875rem] uppercase tracking-[0.12em] text-muted">
+                  {t("vehicleDetails.gearbox")}
+                </p>
               </div>
-              <div className="bg-cream rounded-xl p-5 text-center">
-                <Fuel className="mx-auto text-gold-dark mb-2" size={22} />
-                <p className="font-semibold text-navy">{vehicle.fuel}</p>
-                <p className="text-xs text-slate">{t("vehicleDetails.fuel")}</p>
+              <div className="px-4 py-6">
+                <Fuel size={18} className="text-muted" />
+                <p className="mt-2 font-display text-lg font-semibold text-ink">{vehicle.fuel}</p>
+                <p className="text-[0.6875rem] uppercase tracking-[0.12em] text-muted">
+                  {t("vehicleDetails.fuel")}
+                </p>
               </div>
-              <div className="bg-cream rounded-xl p-5 text-center">
+              <div className="px-4 py-6">
                 {vehicle.mileage ? (
                   <>
-                    <Route className="mx-auto text-gold-dark mb-2" size={22} />
-                    <p className="font-semibold text-navy">
+                    <Route size={18} className="text-muted" />
+                    <p className="mt-2 font-display text-lg font-semibold text-ink">
                       {vehicle.mileage.toLocaleString("fr-FR")} km
                     </p>
-                    <p className="text-xs text-slate">{t("vehicleDetails.mileage")}</p>
+                    <p className="text-[0.6875rem] uppercase tracking-[0.12em] text-muted">
+                      {t("vehicleDetails.mileage")}
+                    </p>
                   </>
                 ) : (
                   <>
-                    <Calendar className="mx-auto text-gold-dark mb-2" size={22} />
-                    <p className="font-semibold text-navy">{vehicle.year}</p>
-                    <p className="text-xs text-slate">{t("vehicleDetails.year")}</p>
+                    <Calendar size={18} className="text-muted" />
+                    <p className="mt-2 font-display text-lg font-semibold text-ink">
+                      {vehicle.year}
+                    </p>
+                    <p className="text-[0.6875rem] uppercase tracking-[0.12em] text-muted">
+                      {t("vehicleDetails.year")}
+                    </p>
                   </>
                 )}
               </div>
             </div>
 
-            <h2 className="font-display font-bold text-2xl text-navy mb-4">
+            <h2 className="mt-12 font-display text-xl font-semibold text-ink">
               {t("common.description")}
             </h2>
-            <p className="text-slate leading-relaxed">{vehicle.description}</p>
+            <p className="mt-4 text-[0.9375rem] leading-relaxed text-slate">{vehicle.description}</p>
 
-            <h2 className="font-display font-bold text-2xl text-navy mt-10 mb-5">
+            <h2 className="mt-10 font-display text-xl font-semibold text-ink">
               {t("common.equipment")}
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {vehicle.features.map((f) => (
-                <div key={f} className="flex items-center gap-3">
-                  <CheckCircle2 size={18} className="text-gold-dark shrink-0" />
+                <div key={f} className="flex items-center gap-2.5">
+                  <CheckCircle2 size={16} className="shrink-0 text-gold-dark" />
                   <span className="text-sm text-slate">{f}</span>
                 </div>
               ))}
             </div>
 
             {vehicle.type === "Location" && (
-              <div className="mt-10 bg-cream border border-navy/5 rounded-2xl p-6">
-                <h3 className="font-display font-semibold text-navy mb-2">
+              <div className="mt-10 border-t border-line pt-8">
+                <h3 className="font-display text-base font-semibold text-ink">
                   {t("common.rentalConditions")}
                 </h3>
-                <ul className="text-sm text-slate space-y-2">
+                <ul className="mt-4 space-y-2">
                   {rentalPoints.map((pt) => (
-                    <li key={pt}>• {pt}</li>
+                    <li key={pt} className="flex items-start gap-2 text-sm text-slate">
+                      <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-gold-dark" />
+                      {pt}
+                    </li>
                   ))}
                 </ul>
               </div>
             )}
           </div>
 
-          {}
           <aside>
-            <div className="bg-navy rounded-2xl p-7 sticky top-28">
-              <h3 className="font-display font-semibold text-lg text-white mb-2">
+            <div className="sticky top-28 rounded-xl bg-ink p-6 md:p-7">
+              <h3 className="font-display text-lg font-semibold text-white">
                 {vehicle.type === "Location"
                   ? t("common.rentThisVehicle")
                   : t("common.interestedVehicle")}
               </h3>
-              <p className="text-white/60 text-sm mb-6">
+              <p className="mt-2 text-[0.8125rem] leading-relaxed text-white/55">
                 {t("common.contactTeamVehicle")}
               </p>
 
-              <a
-                href={whatsappLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 bg-green rounded-xl px-4 py-3 mb-3 hover:bg-green-dark transition-colors"
-              >
-                <MessageCircle size={17} className="text-white" />
-                <span className="text-sm text-white font-medium">
-                  {t("common.whatsapp", { number: site.whatsapp })}
-                </span>
-              </a>
-              {site.phones.map((p) => (
+              <div className="mt-6 space-y-2.5">
                 <a
-                  key={p.href}
-                  href={p.href}
-                  className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3 mb-3 hover:bg-white/15 transition-colors"
+                  href={whatsappLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-lg bg-gold px-4 py-3 text-ink transition-colors hover:bg-gold-light"
                 >
-                  <Phone size={17} className="text-gold" />
-                  <span className="text-sm text-white">{p.label}</span>
+                  <MessageCircle size={16} />
+                  <span className="text-sm font-medium">
+                    {t("common.whatsapp", { number: site.whatsapp })}
+                  </span>
                 </a>
-              ))}
-              {site.email && (
-                <a
-                  href={site.emailHref}
-                  className="flex items-center gap-3 bg-white/10 rounded-xl px-4 py-3 mb-3 hover:bg-white/15 transition-colors"
-                >
-                  <Mail size={17} className="text-gold" />
-                  <span className="text-sm text-white">{site.email}</span>
-                </a>
-              )}
-              <div className="mb-6" />
+                {site.phones.map((p) => (
+                  <a
+                    key={p.href}
+                    href={p.href}
+                    className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-white transition-colors hover:border-white/25"
+                  >
+                    <Phone size={16} className="text-white/50" />
+                    <span className="text-sm">{p.label}</span>
+                  </a>
+                ))}
+                {site.email && (
+                  <a
+                    href={site.emailHref}
+                    className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-white transition-colors hover:border-white/25"
+                  >
+                    <Mail size={16} className="text-white/50" />
+                    <span className="text-sm">{site.email}</span>
+                  </a>
+                )}
+              </div>
+
+              <div className="my-6 h-px bg-white/10" />
 
               {contactSent ? (
-                <div className="bg-white/10 rounded-xl px-4 py-5 text-center">
-                  <CheckCircle2 size={22} className="mx-auto text-gold mb-2" />
-                  <p className="text-sm text-white">{t("common.requestSent")}</p>
-                  <p className="text-xs text-white/50 mt-1">
+                <div className="rounded-lg border border-white/10 px-4 py-6 text-center">
+                  <CheckCircle2 size={20} className="mx-auto text-gold" />
+                  <p className="mt-2 text-sm text-white">{t("common.requestSent")}</p>
+                  <p className="mt-1 text-xs text-white/45">
                     {t("common.requestSentText", { item: vehicle.name })}
                   </p>
                 </div>
               ) : (
-                <form
-                  className="space-y-3"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setContactSending(true);
-                    try {
-                      await fetch("/api/messages", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          name: contactForm.name,
-                          phone: contactForm.phone,
-                          subject: t("common.requestAbout", { item: vehicle.name }),
-                          message: contactForm.message,
-                        }),
-                      });
-                      setContactSent(true);
-                    } catch {
-                      alert(t("contact.form.error"));
-                    } finally {
-                      setContactSending(false);
-                    }
-                  }}
-                >
+                <form className="space-y-2.5" onSubmit={submitContact}>
                   <input
                     type="text"
                     required
                     value={contactForm.name}
                     onChange={(e) => setContactForm((f) => ({ ...f, name: e.target.value }))}
                     placeholder={t("common.yourName")}
-                    className="w-full bg-white/10 text-sm text-white placeholder:text-white/40 rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-gold"
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/35 focus:border-gold/60"
                   />
                   <input
                     type="tel"
@@ -321,7 +321,7 @@ export default function VehicleDetails() {
                     value={contactForm.phone}
                     onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))}
                     placeholder={t("common.yourPhone")}
-                    className="w-full bg-white/10 text-sm text-white placeholder:text-white/40 rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-gold"
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/35 focus:border-gold/60"
                   />
                   <textarea
                     required
@@ -333,12 +333,12 @@ export default function VehicleDetails() {
                         : t("common.yourMessage")
                     }
                     rows={3}
-                    className="w-full bg-white/10 text-sm text-white placeholder:text-white/40 rounded-xl px-4 py-3 outline-none border border-white/10 focus:border-gold resize-none"
+                    className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/35 focus:border-gold/60"
                   />
                   <button
                     type="submit"
                     disabled={contactSending}
-                    className="w-full bg-gold hover:bg-gold-light text-navy font-semibold py-3 rounded-xl transition-colors disabled:opacity-50"
+                    className="btn btn-gold w-full disabled:opacity-50"
                   >
                     {contactSending ? t("common.sending") : t("common.sendRequest")}
                   </button>
@@ -350,12 +350,20 @@ export default function VehicleDetails() {
       </section>
 
       {similar.length > 0 && (
-        <section className="py-20 bg-cream">
+        <section className="bg-sand py-20">
           <div className="container-page">
-            <h2 className="font-display font-bold text-2xl md:text-3xl text-navy mb-10">
-              {t("common.similarVehicles")}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="flex items-end justify-between gap-6">
+              <h2 className="font-display text-2xl font-bold text-ink md:text-[1.75rem]">
+                {t("common.similarVehicles")}
+              </h2>
+              <Link
+                to="/vehicules-a-louer"
+                className="hidden items-center gap-1.5 text-[0.8125rem] font-medium text-ink transition-colors hover:text-gold-dark sm:flex"
+              >
+                {t("common.seeAllFleet")} <ArrowUpRight size={15} />
+              </Link>
+            </div>
+            <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
               {similar.map((v) => (
                 <VehicleCard key={v.id} vehicle={v} />
               ))}

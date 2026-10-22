@@ -1,5 +1,6 @@
 export default {
   promo: {
+    badge: "Promo",
     title: "Promotions en cours",
     until: "Promo jusqu'au {{date}}",
     countdownDays: "Encore {{days}} j {{hours}} h",
@@ -9,6 +10,7 @@ export default {
 
   common: {
     contactUs: "Nous contacter",
+    learnMore: "En savoir plus",
     seeAll: "Voir tout",
     seeAllFleet: "Voir toutes les voitures",
     bookAppointment: "Prendre rendez-vous",
@@ -62,6 +64,8 @@ export default {
     requestSentText:
       "Merci ! Notre équipe vous recontactera très rapidement pour {{item}}.",
     infoRequestSent: "Votre demande est enregistrée.",
+    breadcrumb: "Fil d'Ariane",
+    loading: "Chargement…",
   },
 
   navbar: {
@@ -232,17 +236,39 @@ export default {
         "Louer une voiture",
         "Découvrir la décoration",
       ],
+      goToSlide: "Aller au visuel {{number}}",
     },
     search: {
       transaction: "Type de transaction",
       propertyType: "Type de bien",
       city: "Ville",
       search: "Rechercher",
+      placeholder: "Ville, quartier ou type de bien…",
+    },
+    rethink: {
+      title: "L'immobilier autrement, avec MOTOM",
+      imageAlt: "L'équipe MOTOM en rendez-vous avec ses clients",
+    },
+    appointment: {
+      eyebrow: "Parlons-en !",
+      title: "Prenez rendez-vous avec un conseiller",
+      text: "Quel est votre projet ? Achat, vente, location, construction ou déménagement : un conseiller MOTOM vous rappelle rapidement.",
+    },
+    social: {
+      title: "Restons en contact",
     },
     featured: {
       badge: "En vedette",
-      propertiesTitle: "Biens en vedette",
-      propertiesText: "Notre sélection de maisons, terrains et locations à Bangui.",
+      salesTitle: "Ventes en vedette",
+      salesText: "Nos maisons, terrains et appartements à vendre à Bangui.",
+      rentalsTitle: "Locations en vedette",
+      rentalsText: "Nos maisons et appartements à louer, au mois ou à la nuit.",
+      emptySale: "Aucun bien à vendre en ligne pour le moment.",
+      emptyRent: "Aucun bien à louer en ligne pour le moment.",
+      emptyText:
+        "Nos annonces arrivent bientôt : contactez-nous pour connaître les biens disponibles.",
+      emptyCta: "Voir le catalogue",
+      flipHint: "Survolez pour les détails",
       vehiclesTitle: "Voitures en vedette",
       see: "Voir les offres",
       book: "Réserver sur WhatsApp",
@@ -383,6 +409,7 @@ export default {
     allCities: "Toutes les villes",
     results: "{{count}} résultat",
     resultsPlural: "{{count}} résultats",
+    resultsFor: "Résultats pour « {{query}} »",
     noResults:
       "Aucun bien ne correspond à ces critères pour le moment. Appelez-nous : nous pouvons le rechercher pour vous.",
     cta: {

@@ -1,5 +1,6 @@
 export default {
   promo: {
+    badge: "Deal",
     title: "Current promotions",
     until: "Promo until {{date}}",
     countdownDays: "{{days}} d {{hours}} h left",
@@ -9,6 +10,7 @@ export default {
 
   common: {
     contactUs: "Contact us",
+    learnMore: "Learn more",
     seeAll: "See all",
     seeAllFleet: "See all cars",
     bookAppointment: "Book an appointment",
@@ -59,6 +61,8 @@ export default {
     requestSent: "Request sent!",
     requestSentText: "Thank you! Our team will get back to you very soon about {{item}}.",
     infoRequestSent: "Your request has been recorded.",
+    breadcrumb: "Breadcrumb",
+    loading: "Loading…",
   },
 
   navbar: {
@@ -224,17 +228,39 @@ export default {
         "Rent a car",
         "Discover interior design",
       ],
+      goToSlide: "Go to slide {{number}}",
     },
     search: {
       transaction: "Transaction type",
       propertyType: "Property type",
       city: "City",
       search: "Search",
+      placeholder: "City, neighborhood or property type…",
+    },
+    rethink: {
+      title: "Real estate, done differently with MOTOM",
+      imageAlt: "The MOTOM team meeting clients",
+    },
+    appointment: {
+      eyebrow: "Let's talk!",
+      title: "Book an appointment with an advisor",
+      text: "What is your project? Buying, selling, renting, building or moving: a MOTOM advisor will call you back quickly.",
+    },
+    social: {
+      title: "Let's stay in touch",
     },
     featured: {
       badge: "Featured",
-      propertiesTitle: "Featured properties",
-      propertiesText: "Our selection of houses, land and rentals in Bangui.",
+      salesTitle: "Featured for sale",
+      salesText: "Our houses, land and apartments for sale in Bangui.",
+      rentalsTitle: "Featured for rent",
+      rentalsText: "Our houses and apartments for rent, by the month or by the night.",
+      emptySale: "No property for sale online right now.",
+      emptyRent: "No property for rent online right now.",
+      emptyText:
+        "Our listings are coming soon: contact us to find out which properties are available.",
+      emptyCta: "Browse listings",
+      flipHint: "Hover for details",
       vehiclesTitle: "Featured cars",
       see: "See offers",
       book: "Book on WhatsApp",
@@ -372,6 +398,7 @@ export default {
     allCities: "All cities",
     results: "{{count}} result",
     resultsPlural: "{{count}} results",
+    resultsFor: "Results for “{{query}}”",
     noResults:
       "No property matches these criteria at the moment. Call us: we can look for it for you.",
     cta: {

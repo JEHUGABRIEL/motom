@@ -1,21 +1,10 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  BedDouble,
-  Bath,
-  Ruler,
-  MapPin,
-  ArrowRight,
-  Home as HomeIcon,
-  KeyRound,
-} from "lucide-react";
+import { BedDouble, Bath, Ruler, MapPin, ArrowUpRight } from "lucide-react";
 import type { Property } from "../data/properties";
 import { formatPrice } from "../data/properties";
 import ProgressiveImage from "./ProgressiveImage";
 import Badge from "./Badge";
-
-const typeIcon = (type: Property["type"]) =>
-  type === "Vente" ? HomeIcon : KeyRound;
 
 export default function PropertyCard({
   property,
@@ -25,97 +14,95 @@ export default function PropertyCard({
   compact?: boolean;
 }) {
   const { t } = useTranslation();
+
   if (compact) {
     return (
-      <div className="relative bg-white rounded-2xl overflow-hidden border border-navy/5 shadow-sm">
-        <div className="relative overflow-hidden aspect-[3/1]">
+      <Link
+        to={`/proprietes/${property.id}`}
+        className="group flex gap-4 overflow-hidden rounded-xl border border-line bg-white p-3 transition-colors hover:border-ink/25"
+      >
+        <div className="h-24 w-32 shrink-0 overflow-hidden bg-cream">
           <img
             src={property.image}
             alt={property.title}
-            className="w-full h-full object-cover"
+            className="h-full w-full object-cover"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-navy/85 via-navy/40 to-navy/15" />
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
-            <Badge variant="gold" size="sm" icon={typeIcon(property.type)}>
-              {property.type}
-            </Badge>
-            <Badge variant="navy" size="sm">
-              {property.category}
-            </Badge>
-          </div>
-          <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-4 z-10">
-            <div className="min-w-0">
-              <p className="text-white font-semibold text-sm leading-snug truncate">
-                {property.title}
-              </p>
-              <p className="text-gold font-bold text-sm mt-0.5">
-                {formatPrice(property.price, property.priceUnit)}
-              </p>
-            </div>
-            <Link
-              to={`/proprietes/${property.id}`}
-              className="shrink-0 inline-flex items-center gap-1 bg-gold hover:bg-gold-light text-navy text-xs font-semibold px-3.5 py-1.5 rounded-full shadow-md shadow-gold/30 transition-colors"
-            >
-              {t("common.details")} <ArrowRight size={12} />
-            </Link>
-          </div>
         </div>
-      </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          <p className="text-[0.625rem] uppercase tracking-[0.14em] text-muted">
+            {property.type} · {property.category}
+          </p>
+          <p className="mt-1 truncate font-display text-sm font-semibold text-ink">
+            {property.title}
+          </p>
+          <p className="mt-1 text-xs text-slate">
+            {property.neighborhood}, {property.city}
+          </p>
+          <p className="mt-2 text-sm font-medium text-ink">
+            {formatPrice(property.price, property.priceUnit)}
+          </p>
+        </div>
+      </Link>
     );
   }
 
   return (
     <Link
       to={`/proprietes/${property.id}`}
-      className="group block bg-white rounded-2xl overflow-hidden border border-navy/5 shadow-[0_4px_24px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_32px_rgba(0,0,0,0.12)] transition-all duration-300"
+      className="group flex flex-col overflow-hidden rounded-xl border border-line bg-white transition-colors duration-300 hover:border-ink/30"
     >
-      <div className="relative overflow-hidden aspect-[4/3]">
+      <div className="relative aspect-[4/3] overflow-hidden bg-cream">
         <ProgressiveImage
           src={property.image}
           alt={property.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-          wrapperClassName="w-full h-full"
+          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+          wrapperClassName="h-full w-full"
         />
-        <div className="absolute top-4 left-4 z-10">
-          <Badge variant="gold" icon={typeIcon(property.type)}>
-            {property.type}
-          </Badge>
-        </div>
-        <div className="absolute top-4 right-4 z-10">
-          <Badge variant="navy">{property.category}</Badge>
+        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+          <Badge variant="navy">{property.type}</Badge>
+          {property.promo && <Badge variant="gold">{t("promo.badge")}</Badge>}
         </div>
       </div>
 
-      <div className="p-6">
-        <div className="flex items-center gap-1.5 text-xs text-slate mb-2">
-          <MapPin size={13} className="text-gold" />
-          {property.neighborhood}, {property.city}
-        </div>
-        <h3 className="font-display text-lg font-semibold text-navy leading-snug group-hover:text-gold-dark transition-colors">
+      <div className="flex flex-1 flex-col p-5">
+        <p className="text-[0.625rem] font-medium uppercase tracking-[0.16em] text-muted">
+          {property.category}
+        </p>
+        <h3 className="mt-2 font-display text-[1.0625rem] font-semibold leading-snug text-ink">
           {property.title}
         </h3>
-
-        <p className="text-gold-dark font-semibold text-lg mt-3">
-          {formatPrice(property.price, property.priceUnit)}
+        <p className="mt-1.5 flex items-center gap-1 text-xs text-slate">
+          <MapPin size={12} className="text-muted" />
+          {property.neighborhood}, {property.city}
         </p>
 
-        <div className="flex items-center gap-5 mt-4 pt-4 border-t border-navy/10 text-sm text-slate">
+        <div className="mt-4 flex items-center gap-4 text-xs text-slate">
           {property.bedrooms > 0 && (
             <span className="flex items-center gap-1.5">
-              <BedDouble size={16} className="text-navy/60" />
+              <BedDouble size={14} className="text-muted" />
               {property.bedrooms}
             </span>
           )}
           {property.bathrooms > 0 && (
             <span className="flex items-center gap-1.5">
-              <Bath size={16} className="text-navy/60" />
+              <Bath size={14} className="text-muted" />
               {property.bathrooms}
             </span>
           )}
           <span className="flex items-center gap-1.5">
-            <Ruler size={16} className="text-navy/60" />
+            <Ruler size={14} className="text-muted" />
             {property.area} m²
+          </span>
+        </div>
+
+        <div className="mt-auto flex items-center justify-between border-t border-line pt-4">
+          <p className="font-display text-[0.9375rem] font-semibold text-ink">
+            {formatPrice(property.price, property.priceUnit)}
+          </p>
+          <span className="flex items-center gap-1 text-[0.75rem] font-medium text-slate transition-colors group-hover:text-ink">
+            {t("common.details")}
+            <ArrowUpRight size={14} />
           </span>
         </div>
       </div>

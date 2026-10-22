@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Check } from "lucide-react";
 
 type FilterPillProps = {
   active: boolean;
@@ -12,22 +11,18 @@ export default function FilterPill({
   active,
   onClick,
   children,
-  tone = "navy",
 }: FilterPillProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 ${
+      className={`rounded-full border px-4 py-1.5 text-[0.8125rem] transition-colors ${
         active
-          ? tone === "gold"
-            ? "border-gold bg-gold text-navy shadow-md shadow-gold/25"
-            : "border-navy bg-navy text-white shadow-md shadow-navy/25"
-          : "border-navy/5 bg-cream text-slate hover:border-gold/40 hover:bg-white hover:text-navy"
+          ? "border-ink bg-ink font-medium text-white"
+          : "border-line bg-white text-slate hover:border-ink/30 hover:text-ink"
       }`}
     >
-      {active && <Check size={14} strokeWidth={3} />}
       {children}
     </button>
   );
