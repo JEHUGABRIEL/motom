@@ -1,17 +1,14 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, Home, LandPlot, KeyRound, Sun, CalendarDays, CalendarRange, Calendar } from "lucide-react";
+import { ArrowUpRight, Home, LandPlot, KeyRound, Sun, CalendarDays, CalendarRange, Calendar } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import ProgressiveImage from "./ProgressiveImage";
 import { site } from "../data/site";
 
-// Cartes « en vedette » tant qu'aucune annonce n'est cochée au back-office :
-// elles présentent les offres de l'affiche (pas de bien ni de prix inventés).
 type Offer = {
   key: string;
   icon: LucideIcon;
   image: string;
-  /** Lien interne, ou WhatsApp prérempli quand `whatsapp` est vrai */
   to?: string;
   whatsapp?: boolean;
 };
@@ -36,10 +33,12 @@ export default function OfferCards({ kind }: { kind: "properties" | "vehicles" }
   const { t } = useTranslation();
   const offers = kind === "properties" ? propertyOffers : vehicleOffers;
   const base = `home.featured.offers.${kind}`;
+  const cls =
+    "group flex flex-col overflow-hidden rounded-xl border border-line bg-white transition-colors duration-300 hover:border-ink/30";
 
   return (
     <div
-      className={`grid grid-cols-1 sm:grid-cols-2 gap-6 ${
+      className={`grid grid-cols-1 gap-6 sm:grid-cols-2 ${
         offers.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"
       }`}
     >
@@ -47,28 +46,28 @@ export default function OfferCards({ kind }: { kind: "properties" | "vehicles" }
         const title = t(`${base}.${o.key}.title`);
         const body = (
           <>
-            <div className="relative h-44">
+            <div className="relative aspect-[16/10] overflow-hidden bg-cream">
               <ProgressiveImage
                 src={o.image}
                 alt={title}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                wrapperClassName="w-full h-full overflow-hidden"
+                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                wrapperClassName="h-full w-full"
               />
-              <span className="absolute -bottom-6 left-6 w-12 h-12 rounded-full bg-gold border-4 border-white flex items-center justify-center">
-                <o.icon size={20} className="text-navy" />
-              </span>
             </div>
-            <div className="p-6 pt-9 flex flex-col flex-1">
-              <h3 className="font-display font-bold text-navy text-lg">{title}</h3>
-              <p className="text-sm text-slate leading-relaxed mt-2">{t(`${base}.${o.key}.text`)}</p>
-              <span className="mt-auto pt-5 inline-flex items-center gap-2 text-sm font-semibold text-navy group-hover:text-gold-dark transition-colors">
-                {o.whatsapp ? t("home.featured.book") : t("home.featured.see")} <ArrowRight size={16} />
+            <div className="flex flex-1 flex-col p-6">
+              <div className="flex items-center gap-2 text-muted">
+                <o.icon size={16} strokeWidth={1.75} />
+                <h3 className="font-display text-[1rem] font-semibold text-ink">{title}</h3>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-slate">{t(`${base}.${o.key}.text`)}</p>
+              <span className="mt-auto flex items-center gap-1 pt-5 text-[0.8125rem] font-medium text-slate transition-colors group-hover:text-ink">
+                {o.whatsapp ? t("home.featured.book") : t("home.featured.see")}
+                <ArrowUpRight size={15} />
               </span>
             </div>
           </>
         );
-        const cls =
-          "group bg-white rounded-2xl overflow-hidden border border-navy/10 hover:border-gold transition-colors flex flex-col";
+
         return o.whatsapp ? (
           <a
             key={o.key}

@@ -144,15 +144,15 @@ export default function PromoBanner() {
       item={contactItem ?? undefined}
     />
     <div className="fixed bottom-24 right-6 z-40 w-[calc(100%-3rem)] max-w-sm sm:max-w-md">
-      <div className="bg-navy border border-gold/40 rounded-2xl shadow-2xl shadow-navy/30 overflow-hidden animate-fade-up">
+      <div className="bg-white border border-line rounded-xl shadow-xl shadow-ink/10 overflow-hidden animate-fade-up">
         <div className="flex items-center justify-between gap-3 px-5 pt-4">
-          <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-gold">
+          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-gold-dark">
             <Megaphone size={14} />
             {t("promo.title")}
           </p>
           <button
             onClick={() => setVisible(false)}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all"
+            className="w-7 h-7 rounded flex items-center justify-center text-muted hover:text-ink hover:bg-cream transition-all"
             aria-label={t("common.close")}
           >
             <X size={15} />
@@ -166,7 +166,7 @@ export default function PromoBanner() {
                 key={`${p.kind}-${p.id}`}
                 to={p.to}
                 onClick={() => setDismissed(true)}
-                className="group flex items-center gap-3 rounded-xl bg-white/[0.05] border border-white/10 p-2.5 hover:border-gold/40 hover:bg-white/[0.08] transition-all"
+                className="group flex items-center gap-3 rounded-lg bg-cream border border-line p-2.5 hover:border-gold/60 transition-all"
               >
                 <img
                   src={p.image}
@@ -175,20 +175,20 @@ export default function PromoBanner() {
                   loading="lazy"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-white truncate group-hover:text-gold transition-colors">
+                  <p className="text-xs font-medium text-ink truncate transition-colors">
                     {p.title}
                   </p>
-                  <p className="text-[11px] text-gold mt-0.5">
+                  <p className="text-[11px] font-medium text-ink mt-0.5">
                     {p.price}
                     {p.promoEndsAt && (
-                      <span className="text-white/50"> · {t("promo.until", { date: formatPromoEnd(p.promoEndsAt, i18n.language) })}</span>
+                      <span className="text-muted font-normal"> · {t("promo.until", { date: formatPromoEnd(p.promoEndsAt, i18n.language) })}</span>
                     )}
                   </p>
                   {(() => {
                     const cd = promoCountdown(p.promoEndsAt, now);
                     if (!cd) return null;
                     return (
-                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-gold bg-gold/15 border border-gold/30 rounded-md px-1.5 py-0.5 tabular-nums">
+                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-gold-dark bg-gold/10 border border-gold/30 rounded px-1.5 py-0.5 tabular-nums">
                         <Timer size={11} />
                         {cd.days > 0
                           ? t("promo.countdownDays", { days: cd.days, hours: cd.hours })
@@ -205,13 +205,13 @@ export default function PromoBanner() {
                     e.stopPropagation();
                     setContactItem({ kind: p.kind, title: p.title });
                   }}
-                  className="flex items-center gap-1.5 text-[10px] font-semibold bg-gold/20 text-gold px-2.5 py-1.5 rounded-lg hover:bg-gold/30 transition-colors shrink-0"
+                  className="flex items-center gap-1.5 text-[10px] font-medium bg-white border border-line text-ink px-2.5 py-1.5 rounded hover:border-ink/30 transition-colors shrink-0"
                   title={t("common.askInfo")}
                 >
                   <MessageCircle size={12} />
                   {t("common.askInfo")}
                 </button>
-                <ArrowRight size={14} className="text-white/30 group-hover:text-gold transition-colors shrink-0" />
+                <ArrowRight size={14} className="text-muted group-hover:text-ink transition-colors shrink-0" />
               </Link>
             );
             })}

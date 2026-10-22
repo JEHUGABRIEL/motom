@@ -6,7 +6,10 @@
     { "source": "/api/reviews/:id", "destination": "/api/reviews?id=:id" },
     { "source": "/api/services/:id", "destination": "/api/services?id=:id" },
     { "source": "/api/faqs/:id", "destination": "/api/faqs?id=:id" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/|src/|@|node_modules/)(?!.*\\.).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {

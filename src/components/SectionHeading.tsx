@@ -3,6 +3,7 @@ type Props = {
   align?: "left" | "center";
   light?: boolean;
   description?: string;
+  eyebrow?: string;
 };
 
 export default function SectionHeading({
@@ -10,22 +11,33 @@ export default function SectionHeading({
   align = "left",
   light = false,
   description,
+  eyebrow,
 }: Props) {
+  const centered = align === "center";
+
   return (
-    <div
-      className={`max-w-2xl ${align === "center" ? "mx-auto text-center" : ""}`}
-    >
+    <div className={centered ? "mx-auto max-w-2xl text-center" : "max-w-2xl"}>
+      {eyebrow && (
+        <p
+          className={`eyebrow mb-4 ${centered ? "justify-center" : ""} ${
+            light ? "text-white/60" : "text-muted"
+          }`}
+        >
+          {eyebrow}
+        </p>
+      )}
       <h2
-        className={`font-display font-bold leading-tight text-3xl md:text-4xl ${
-          light ? "text-white" : "text-navy"
+        className={`font-display text-[1.75rem] font-bold leading-[1.15] tracking-tight md:text-[2.35rem] ${
+          light ? "text-white" : "text-ink"
         }`}
       >
         {title}
       </h2>
+      <span className={`accent-line ${centered ? "mx-auto" : ""}`} />
       {description && (
         <p
-          className={`mt-4 text-base leading-relaxed ${
-            light ? "text-white/70" : "text-slate"
+          className={`mt-5 text-[0.95rem] leading-relaxed ${
+            light ? "text-white/65" : "text-slate"
           }`}
         >
           {description}

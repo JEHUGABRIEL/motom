@@ -30,9 +30,9 @@ export default function PromoCountdownChip({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full bg-gold/15 text-gold-dark border border-gold/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide tabular-nums ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded border border-gold/40 bg-gold/10 px-2.5 py-1 text-[0.625rem] font-medium uppercase tracking-wide tabular-nums text-gold-dark ${className}`}
     >
-      <Timer size={11} strokeWidth={2.5} />
+      <Timer size={11} />
       {cd.days > 0
         ? t("promo.countdownDays", { days: cd.days, hours: cd.hours })
         : cd.hours > 0

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   SlidersHorizontal,
-  ArrowRight,
+  ArrowUpRight,
   ArrowLeftRight,
   LayoutGrid,
   MapPin,
@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import PropertyCard from "../components/PropertyCard";
 import FilterPill from "../components/FilterPill";
+import PageHero from "../components/PageHero";
+import CtaBand from "../components/CtaBand";
+import CardSkeleton from "../components/CardSkeleton";
 import { useProperties } from "../lib/api";
 
 const categories = ["Tous", "Villa", "Maison", "Appartement", "Terrain", "Bureau", "Studio"] as const;
@@ -21,10 +24,10 @@ const cities = ["Toutes", "Bangui", "Bimbo"] as const;
 
 export default function Properties({ defaultType }: { defaultType?: string }) {
   const { t } = useTranslation();
-  const { data: properties = [] } = useProperties();
-  // /biens-a-louer?saison=1 : location saisonnière (tarif à la nuit)
-  const [searchParams] = useSearchParams();
+  const { data: properties = [], isLoading } = useProperties();
+  const [searchParams, setSearchParams] = useSearchParams();
   const seasonal = searchParams.has("saison");
+  const query = searchParams.get("q")?.trim() ?? "";
   const [category, setCategory] = useState<(typeof categories)[number]>("Tous");
   const [type, setType] = useState<(typeof types)[number]>(
     (defaultType as (typeof types)[number]) || "Tous",
@@ -38,91 +41,130 @@ export default function Properties({ defaultType }: { defaultType?: string }) {
       if (type !== "Tous" && p.type !== type) return false;
       if (city !== "Toutes" && p.city !== city) return false;
       if (seasonal && p.priceUnit !== "FCFA/nuit") return false;
+      if (query) {
+        const haystack = `${p.title} ${p.neighborhood} ${p.city} ${p.category} ${p.type} ${p.description}`.toLowerCase();
+        if (!haystack.includes(query.toLowerCase())) return false;
+      }
       return true;
     });
-  }, [category, type, city, seasonal, properties]);
+  }, [category, type, city, seasonal, query, properties]);
 
   const heroTitle = seasonal
     ? t("properties.hero.titleSeasonal")
     : defaultType
-    ? defaultType === "Vente"
-      ? t("properties.hero.titleSale")
-      : t("properties.hero.titleRent")
-    : t("properties.hero.titleAll");
+      ? defaultType === "Vente"
+        ? t("properties.hero.titleSale")
+        : t("properties.hero.titleRent")
+      : t("properties.hero.titleAll");
 
   const heroText = seasonal
     ? t("properties.hero.textSeasonal")
     : defaultType === "Vente"
-    ? t("properties.hero.textSale")
-    : defaultType === "Location"
-      ? t("properties.hero.textRent")
-      : t("properties.hero.textAll");
+      ? t("properties.hero.textSale")
+      : defaultType === "Location"
+        ? t("properties.hero.textRent")
+        : t("properties.hero.textAll");
+
+  const dirtyFilters = type !== "Tous" || category !== "Tous" || city !== "Toutes" || !!query;
+
+  const clearQuery = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("q");
+    setSearchParams(next, { replace: true });
+  };
+
+  const resetFilters = () => {
+    setType((defaultType as (typeof types)[number]) || "Tous");
+    setCategory("Tous");
+    setCity("Toutes");
+    if (query) clearQuery();
+  };
 
   return (
     <div>
-      <section className="relative pt-40 pb-24 bg-navy overflow-hidden">
-        <div className="absolute inset-0 opacity-25">
-          <img
-            src="https://images.unsplash.com/photo-1523217582562-09d0def993a6?auto=format&fit=crop&w=1920&q=80"
-            alt={t("properties.hero.alt")}
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="container-page relative z-10 text-center">
-          <h1 className="font-display font-bold text-white text-4xl md:text-5xl">
-            {heroTitle}
-          </h1>
-          <p className="text-white/60 max-w-xl mx-auto mt-5">
-            {heroText}
-          </p>
-        </div>
-      </section>
+      <PageHero
+        title={heroTitle}
+        description={heroText}
+        crumb={t("navbar.properties")}
+        image={
+          seasonal
+            ? "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=80"
+            : defaultType === "Location"
+              ? "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"
+              : "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80"
+        }
+        imageAlt={heroTitle}
+      />
 
-      <section className="py-16 bg-white">
+      <section className="py-12 md:py-16">
         <div className="container-page">
-          {}
-          <div className="bg-white border border-navy/10 rounded-2xl shadow-lg shadow-navy/5 mb-12 overflow-hidden">
-            {}
-            <div className="flex items-center justify-between gap-3 px-6 py-4 bg-navy">
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal size={16} className="text-gold" />
-                <span className="text-xs font-bold text-white uppercase tracking-widest">
-                  {t("properties.filters")}
-                </span>
+          <div className="mb-10 border-y border-line py-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-[0.6875rem] font-medium uppercase tracking-[0.16em] text-muted">
+                <SlidersHorizontal size={14} />
+                {t("properties.filters")}
               </div>
 
-              {}
-              <button
-                onClick={() => setMobileFiltersOpen((o) => !o)}
-                className="lg:hidden inline-flex items-center gap-2 text-xs font-medium text-white/80 hover:text-gold transition-colors"
-                aria-label={mobileFiltersOpen ? t("common.close") : t("properties.filter")}
-              >
-                {mobileFiltersOpen ? (
-                  <>
-                    {t("common.close")} <X size={16} />
-                  </>
-                ) : (
-                  <>
-                    <Filter size={16} />
-                    {t("properties.filter")}
-                  </>
+              <div className="flex items-center gap-4">
+                {!isLoading && (
+                  <span className="text-xs text-muted">
+                    {t(filtered.length > 1 ? "properties.resultsPlural" : "properties.results", {
+                      count: filtered.length,
+                    })}
+                  </span>
                 )}
-              </button>
+
+                {dirtyFilters && (
+                  <button
+                    onClick={resetFilters}
+                    className="flex items-center gap-1.5 text-[0.75rem] font-medium text-gold-dark transition-colors hover:text-ink"
+                  >
+                    <RotateCcw size={12} /> {t("common.reset")}
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setMobileFiltersOpen((o) => !o)}
+                  className="flex items-center gap-1.5 text-[0.75rem] font-medium text-ink lg:hidden"
+                  aria-label={mobileFiltersOpen ? t("common.close") : t("properties.filter")}
+                >
+                  {mobileFiltersOpen ? (
+                    <>
+                      {t("common.close")} <X size={14} />
+                    </>
+                  ) : (
+                    <>
+                      <Filter size={14} /> {t("properties.filter")}
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
-            {}
+            {query && (
+              <div className="mt-4 flex items-center gap-2 text-[0.8125rem] text-slate">
+                <span>{t("properties.resultsFor", { query })}</span>
+                <button
+                  onClick={clearQuery}
+                  aria-label={t("common.reset")}
+                  className="flex h-5 w-5 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-ink/30 hover:text-ink"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            )}
+
             <div
               className={`overflow-hidden transition-all duration-300 ease-in-out ${
                 mobileFiltersOpen
-                  ? "max-h-[800px] opacity-100"
-                  : "max-h-0 opacity-0 lg:max-h-[800px] lg:opacity-100"
+                  ? "max-h-[900px] opacity-100"
+                  : "max-h-0 opacity-0 lg:max-h-[900px] lg:opacity-100"
               }`}
             >
-              <div className="px-6 py-6 space-y-6">
-                {}
+              <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <p className="flex items-center gap-1.5 text-[11px] font-bold text-slate uppercase tracking-widest mb-3">
-                    <ArrowLeftRight size={12} className="text-gold-dark" />
+                  <p className="mb-3 flex items-center gap-1.5 text-[0.6875rem] uppercase tracking-[0.12em] text-muted">
+                    <ArrowLeftRight size={12} />
                     {t("properties.transaction")}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -141,10 +183,9 @@ export default function Properties({ defaultType }: { defaultType?: string }) {
                   </div>
                 </div>
 
-                {}
                 <div>
-                  <p className="flex items-center gap-1.5 text-[11px] font-bold text-slate uppercase tracking-widest mb-3">
-                    <LayoutGrid size={12} className="text-gold-dark" />
+                  <p className="mb-3 flex items-center gap-1.5 text-[0.6875rem] uppercase tracking-[0.12em] text-muted">
+                    <LayoutGrid size={12} />
                     {t("properties.category")}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -164,10 +205,9 @@ export default function Properties({ defaultType }: { defaultType?: string }) {
                   </div>
                 </div>
 
-                {}
                 <div>
-                  <p className="flex items-center gap-1.5 text-[11px] font-bold text-slate uppercase tracking-widest mb-3">
-                    <MapPin size={12} className="text-gold-dark" />
+                  <p className="mb-3 flex items-center gap-1.5 text-[0.6875rem] uppercase tracking-[0.12em] text-muted">
+                    <MapPin size={12} />
                     {t("properties.city")}
                   </p>
                   <select
@@ -176,7 +216,7 @@ export default function Properties({ defaultType }: { defaultType?: string }) {
                       setCity(e.target.value as (typeof cities)[number]);
                       setMobileFiltersOpen(false);
                     }}
-                    className="select-filter w-full sm:w-auto rounded-xl border border-navy/10 bg-cream px-4 py-2.5 text-sm font-medium text-navy transition-all hover:border-gold/60 focus:border-gold focus:ring-2 focus:ring-gold/15 focus:outline-none"
+                    className="select-filter field w-full py-2 pl-4 pr-10 sm:w-48"
                   >
                     {cities.map((c) => (
                       <option key={c} value={c}>
@@ -187,61 +227,35 @@ export default function Properties({ defaultType }: { defaultType?: string }) {
                 </div>
               </div>
             </div>
-
-            {}
-            <div className="px-6 py-4 flex flex-wrap items-center gap-3 border-t border-navy/10 bg-cream/60">
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-navy">
-                <span className="w-2 h-2 rounded-full bg-gold" />
-                {t(filtered.length > 1 ? "properties.resultsPlural" : "properties.results", { count: filtered.length })}
-              </span>
-              {(type !== "Tous" || category !== "Tous" || city !== "Toutes") && (
-                <button
-                  onClick={() => {
-                    setType((defaultType as (typeof types)[number]) || "Tous");
-                    setCategory("Tous");
-                    setCity("Toutes");
-                  }}
-                  className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-gold-dark hover:text-gold transition-colors"
-                >
-                  <RotateCcw size={13} /> {t("common.reset")}
-                </button>
-              )}
-            </div>
           </div>
 
-          {filtered.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {isLoading ? (
+            <CardSkeleton count={6} />
+          ) : filtered.length > 0 ? (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filtered.map((p) => (
                 <PropertyCard key={p.id} property={p} />
               ))}
             </div>
           ) : (
-            <div className="text-center py-20 text-slate">
-              {t("properties.noResults")}
+            <div className="border border-line py-20 text-center">
+              <p className="mx-auto max-w-md px-6 text-sm leading-relaxed text-slate">
+                {t("properties.noResults")}
+              </p>
+              <Link to="/contact" className="btn btn-outline mt-6">
+                {t("common.contactUs")} <ArrowUpRight size={15} />
+              </Link>
             </div>
           )}
         </div>
       </section>
 
-      {}
-      <section className="py-20 bg-gold">
-        <div className="container-page flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
-          <div>
-            <h2 className="font-display font-bold text-navy text-3xl md:text-4xl">
-              {t("properties.cta.title")}
-            </h2>
-            <p className="text-navy/70 mt-3 max-w-xl">
-              {t("properties.cta.text")}
-            </p>
-          </div>
-          <Link
-            to="/contact"
-            className="bg-navy text-white font-semibold px-8 py-4 rounded-full hover:bg-white hover:text-navy transition-colors shrink-0 flex items-center gap-2"
-          >
-            {t("common.bookAppointment")} <ArrowRight size={18} />
-          </Link>
-        </div>
-      </section>
+      <CtaBand
+        title={t("properties.cta.title")}
+        text={t("properties.cta.text")}
+        label={t("common.bookAppointment")}
+        to="/contact"
+      />
     </div>
   );
 }

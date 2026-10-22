@@ -5,10 +5,8 @@ import { X, Send, CheckCircle2, AlertCircle } from "lucide-react";
 type ContactModalProps = {
   open: boolean;
   onClose: () => void;
-  
   item?: { kind: "property" | "vehicle"; title: string };
 };
-
 
 export default function ContactModal({ open, onClose, item }: ContactModalProps) {
   const { t } = useTranslation();
@@ -19,7 +17,9 @@ export default function ContactModal({ open, onClose, item }: ContactModalProps)
 
   if (!open) return null;
 
-  const subject = item ? t("common.requestAbout", { item: item.title }) : t("contact.form.initialSubject");
+  const subject = item
+    ? t("common.requestAbout", { item: item.title })
+    : t("contact.form.initialSubject");
 
   const reset = () => {
     setForm({ name: "", phone: "", email: "", message: "" });
@@ -56,25 +56,21 @@ export default function ContactModal({ open, onClose, item }: ContactModalProps)
     }
   };
 
-  const inputCls =
-    "w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all";
-
   return (
-    <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-      <div className="bg-zinc-900 rounded-2xl w-full max-w-md border border-white/10 shadow-2xl overflow-hidden animate-fade-up">
-        {}
-        <div className="flex items-center justify-between gap-3 px-6 pt-6">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/70 p-4">
+      <div className="w-full max-w-md overflow-hidden rounded-xl border border-line bg-white">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-6 py-5">
           <div>
-            <h3 className="font-display font-semibold text-white text-lg">
+            <h3 className="font-display text-lg font-semibold text-ink">
               {sent ? t("common.requestSent") : t("common.askInfo")}
             </h3>
             {item && !sent && (
-              <p className="text-xs text-gold mt-0.5 truncate max-w-[260px]">{item.title}</p>
+              <p className="mt-0.5 max-w-[260px] truncate text-xs text-muted">{item.title}</p>
             )}
           </div>
           <button
             onClick={close}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded text-muted transition-colors hover:bg-cream hover:text-ink"
             aria-label={t("common.close")}
           >
             <X size={18} />
@@ -83,17 +79,14 @@ export default function ContactModal({ open, onClose, item }: ContactModalProps)
 
         <div className="p-6">
           {sent ? (
-            <div className="text-center py-4">
-              <span className="w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 size={26} className="text-emerald-400" />
+            <div className="py-4 text-center">
+              <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-cream">
+                <CheckCircle2 size={24} className="text-gold-dark" />
               </span>
-              <p className="text-sm text-white/70">
+              <p className="text-sm leading-relaxed text-slate">
                 {t("common.requestSentText", { item: item?.title ?? "" })}
               </p>
-              <button
-                onClick={close}
-                className="mt-6 px-6 py-2.5 rounded-xl bg-gold text-navy text-sm font-semibold hover:bg-gold-light transition-colors"
-              >
+              <button onClick={close} className="btn btn-dark mt-6">
                 {t("common.close")}
               </button>
             </div>
@@ -106,7 +99,7 @@ export default function ContactModal({ open, onClose, item }: ContactModalProps)
                   placeholder={t("common.yourName")}
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  className={inputCls}
+                  className="field"
                 />
                 <input
                   required
@@ -114,7 +107,7 @@ export default function ContactModal({ open, onClose, item }: ContactModalProps)
                   placeholder={t("common.yourPhone")}
                   value={form.phone}
                   onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                  className={inputCls}
+                  className="field"
                 />
               </div>
               <input
@@ -122,7 +115,7 @@ export default function ContactModal({ open, onClose, item }: ContactModalProps)
                 placeholder={t("common.yourEmail")}
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                className={inputCls}
+                className="field"
               />
               <textarea
                 required
@@ -130,17 +123,17 @@ export default function ContactModal({ open, onClose, item }: ContactModalProps)
                 placeholder={t("common.yourMessage")}
                 value={form.message}
                 onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
-                className={`${inputCls} resize-none`}
+                className="field resize-none"
               />
               {error && (
-                <p className="flex items-center gap-2 text-xs text-red-400 bg-red-400/10 rounded-lg px-3 py-2">
+                <p className="flex items-center gap-2 rounded bg-red-50 px-3 py-2 text-xs text-red-700">
                   <AlertCircle size={14} /> {t("contact.form.error")}
                 </p>
               )}
               <button
                 type="submit"
                 disabled={sending}
-                className="w-full flex items-center justify-center gap-2 bg-gold hover:bg-gold-light text-navy font-semibold py-3 rounded-xl transition-all disabled:opacity-50"
+                className="btn btn-dark w-full disabled:opacity-50"
               >
                 {sending ? t("common.sending") : t("common.sendRequest")} <Send size={15} />
               </button>

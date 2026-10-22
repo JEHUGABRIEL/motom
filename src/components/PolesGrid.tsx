@@ -1,21 +1,18 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import ProgressiveImage from "./ProgressiveImage";
 import { poles, type PoleSlug } from "../data/poles";
 
 type Props = {
-  /** Pôle à exclure (page du pôle courant) */
   exclude?: PoleSlug;
 };
 
-// Cartes des pôles, sur le modèle de l'affiche : photo, pastille jaune à
-// icône noire, titre en capitales, phrase d'accroche et mots-clés.
 export default function PolesGrid({ exclude }: Props) {
   const { t } = useTranslation();
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {poles
         .filter((p) => p.slug !== exclude)
         .map((p) => {
@@ -24,31 +21,33 @@ export default function PolesGrid({ exclude }: Props) {
             <Link
               key={p.slug}
               to={p.to}
-              className="group bg-white rounded-2xl overflow-hidden border border-navy/10 hover:border-gold transition-colors flex flex-col"
+              className="group flex flex-col overflow-hidden rounded-xl border border-line bg-white transition-colors duration-300 hover:border-ink/30"
             >
-              <div className="relative h-48">
+              <div className="relative aspect-[16/10] overflow-hidden bg-cream">
                 <ProgressiveImage
                   src={p.image.replace("w=1600", "w=800")}
                   alt={t(`poles.${p.slug}.title`)}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  wrapperClassName="w-full h-full overflow-hidden"
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                  wrapperClassName="h-full w-full"
                 />
-                <span className="absolute -bottom-6 left-6 w-14 h-14 rounded-full bg-gold border-4 border-white flex items-center justify-center">
-                  <p.icon size={24} className="text-navy" />
-                </span>
               </div>
-              <div className="p-6 pt-9 flex flex-col flex-1">
-                <h3 className="font-display font-bold uppercase tracking-wide text-navy text-lg">
+
+              <div className="flex flex-1 flex-col p-6">
+                <div className="flex items-center gap-2 text-muted">
+                  <p.icon size={17} strokeWidth={1.75} />
+                  <span className="text-[0.625rem] font-medium uppercase tracking-[0.16em]">
+                    {tags.join(" · ")}
+                  </span>
+                </div>
+                <h3 className="mt-3 font-display text-[1.0625rem] font-semibold text-ink">
                   {t(`poles.${p.slug}.title`)}
                 </h3>
-                <p className="text-sm text-slate leading-relaxed mt-2">
+                <p className="mt-2 text-sm leading-relaxed text-slate">
                   {t(`poles.${p.slug}.short`)}
                 </p>
-                <p className="text-xs font-semibold text-gold-dark mt-4">
-                  {tags.join(" · ")}
-                </p>
-                <span className="mt-auto pt-5 inline-flex items-center gap-2 text-sm font-semibold text-navy group-hover:text-gold-dark transition-colors">
-                  {t("poles.discover")} <ArrowRight size={16} />
+                <span className="mt-auto flex items-center gap-1 pt-5 text-[0.8125rem] font-medium text-slate transition-colors group-hover:text-ink">
+                  {t("poles.discover")}
+                  <ArrowUpRight size={15} />
                 </span>
               </div>
             </Link>

@@ -2,19 +2,15 @@ import { Loader2 } from "lucide-react";
 
 export default function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-navy flex flex-col items-center justify-center p-6">
-      <img
-        src="/logo-light.svg"
-        alt=""
-        className="w-20 h-20 animate-fade-up"
-      />
-      <h1 className="font-display font-extrabold text-white text-2xl mt-6 tracking-wide animate-fade-up">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-white p-6">
+      <img src="/logo.svg" alt="" className="h-16 w-auto animate-fade-up" />
+      <h1 className="mt-5 font-display text-lg font-bold tracking-[0.08em] text-ink animate-fade-up">
         MOTOM
       </h1>
-      <p className="text-gold text-[10px] font-semibold uppercase tracking-[0.25em] mt-1">
+      <p className="mt-1 text-[0.625rem] font-medium uppercase tracking-[0.22em] text-muted">
         Agence immobilière
       </p>
-      <Loader2 size={22} className="text-gold mt-6 animate-spin" />
+      <Loader2 size={18} className="mt-6 animate-spin text-gold-dark" />
     </div>
   );
 }
