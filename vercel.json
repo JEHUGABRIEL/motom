@@ -2,6 +2,7 @@
   "framework": "vite",
   "rewrites": [
     { "source": "/api/mfa", "destination": "/api/auth?mfa=1" },
+    { "source": "/api/audit", "destination": "/api/admins/audit" },
     { "source": "/api/messages/:id", "destination": "/api/messages?id=:id" },
     { "source": "/api/reviews/:id", "destination": "/api/reviews?id=:id" },
     { "source": "/api/services/:id", "destination": "/api/services?id=:id" },
