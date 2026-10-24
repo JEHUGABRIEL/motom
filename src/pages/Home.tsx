@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import SectionHeading from "../components/SectionHeading";
 import FeaturedPropertyCard from "../components/FeaturedPropertyCard";
-import VehicleCard from "../components/VehicleCard";
+import FeaturedVehicleCard from "../components/FeaturedVehicleCard";
 import OfferCards from "../components/OfferCards";
 import ReviewsSection from "../components/ReviewsSection";
 import SocialIcons from "../components/SocialIcons";
@@ -371,7 +371,7 @@ export default function Home() {
             ) : vehiclesToShow.length > 0 ? (
               <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                 {vehiclesToShow.map((v) => (
-                  <VehicleCard key={v.id} vehicle={v} />
+                  <FeaturedVehicleCard key={v.id} vehicle={v} />
                 ))}
               </div>
             ) : (

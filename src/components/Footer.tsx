@@ -19,7 +19,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-white px-3 pb-3 md:px-5 md:pb-5">
+    <footer className="bg-white px-3 pb-3 pt-3 md:px-5 md:pb-5 md:pt-5">
       <div className="rounded-2xl bg-ink text-white">
         <div className="container-page">
           <div className="grid grid-cols-1 gap-12 py-14 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.15fr] lg:gap-10">
