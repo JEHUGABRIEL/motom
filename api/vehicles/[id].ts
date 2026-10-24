@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { query, serializeVehicle } from "../../lib/db.js";
 import { requireAdmin } from "../../lib/auth.js";
 import { respondInternalError } from "../../lib/http.js";
+import { recordAudit } from "../../lib/audit.js";
 import { partialUpdate, textField, numberField, oneOfField, booleanField, dateOrNullField } from "../../lib/update.js";
 
 const VEHICLE_FIELDS = [
@@ -47,7 +48,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "PUT") {
-      if (!await requireAdmin(req, res)) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
       const ok = await partialUpdate(
         res,
@@ -57,12 +59,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         body ?? {}
       );
       if (!ok) return;
+      await recordAudit({
+        action: "vehicle.update",
+        entityType: "vehicle",
+        entityId: id,
+        actor: admin,
+        req,
+        metadata: { fields: Object.keys(body ?? {}) },
+      });
       return res.status(200).json({ success: true });
     }
 
     if (req.method === "DELETE") {
-      if (!await requireAdmin(req, res)) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       await query("DELETE FROM vehicles WHERE id = $1", id);
+      await recordAudit({
+        action: "vehicle.delete",
+        entityType: "vehicle",
+        entityId: id,
+        actor: admin,
+        req,
+      });
       return res.status(200).json({ success: true });
     }
 

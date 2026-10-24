@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { useCreateMessage } from "../lib/api";
 
 type ContactModalProps = {
   open: boolean;
@@ -11,6 +12,7 @@ type ContactModalProps = {
 export default function ContactModal({ open, onClose, item }: ContactModalProps) {
   const { t } = useTranslation();
   const [form, setForm] = useState({ name: "", phone: "", email: "", message: "" });
+  const createMessage = useCreateMessage();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState(false);
@@ -37,16 +39,12 @@ export default function ContactModal({ open, onClose, item }: ContactModalProps)
     setSending(true);
     setError(false);
     try {
-      await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          phone: form.phone,
-          email: form.email,
-          subject,
-          message: form.message,
-        }),
+      await createMessage.mutateAsync({
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        subject,
+        message: form.message,
       });
       setSent(true);
     } catch {

@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatPrice, type Property } from "../data/properties";
 import { formatVehiclePrice, type Vehicle } from "../data/vehicles";
+import type {
+  AdminRow,
+  LoginEvent,
+  Review as AdminReview,
+} from "../admin/types";
 
 const API = ""; 
 
@@ -31,6 +36,14 @@ export const queryKeys = {
     all: ["messages"] as const,
     byFilter: (f: string) => ["messages", "filter", f] as const,
   },
+  reviews: {
+    all: ["reviews"] as const,
+    admin: ["reviews", "admin"] as const,
+  },
+  admins: {
+    all: ["admins"] as const,
+  },
+  loginEvents: ["login-events"] as const,
   vehicles: {
     all: ["vehicles"] as const,
     byId: (id: string) => ["vehicles", id] as const,
@@ -201,6 +214,70 @@ export function useStats() {
   });
 }
 
+export type AuditStatus = "success" | "failure";
+
+export type AuditEvent = {
+  id: string;
+  createdAt: string;
+  actor: {
+    id: string | null;
+    email: string;
+    username: string | null;
+    role: string | null;
+  } | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  status: AuditStatus;
+  ip: string;
+  userAgent: string;
+  metadata: Record<string, unknown>;
+};
+
+export type AuditFilters = {
+  page: number;
+  pageSize: number;
+  q?: string;
+  entityType?: string;
+  status?: AuditStatus | "all";
+  days?: number;
+};
+
+export type AuditLogResponse = {
+  events: AuditEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export function useAuditLog(filters: AuditFilters) {
+  return useQuery({
+    queryKey: [
+      "audit",
+      filters.page,
+      filters.pageSize,
+      filters.q ?? "",
+      filters.entityType ?? "",
+      filters.status ?? "all",
+      filters.days ?? 7,
+    ],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        page: String(filters.page),
+        pageSize: String(filters.pageSize),
+      });
+      if (filters.q) params.set("q", filters.q);
+      if (filters.entityType) params.set("entityType", filters.entityType);
+      if (filters.status && filters.status !== "all") params.set("status", filters.status);
+      if (filters.days !== undefined) params.set("days", String(filters.days));
+      return apiFetch<AuditLogResponse>(`/api/audit?${params.toString()}`);
+    },
+    staleTime: 1000 * 15,
+    placeholderData: (previousData) => previousData,
+  });
+}
+
 
 
 export type Service = {
@@ -325,6 +402,24 @@ export function useDeleteFaq() {
 
 
 
+export type Review = {
+  id: string;
+  author: string;
+  avatar?: string;
+  rating: number;
+  comment: string;
+  created_at?: string;
+};
+
+export function useReviews() {
+  return useQuery({
+    queryKey: queryKeys.reviews.all,
+    queryFn: () => apiFetch<Review[]>("/api/reviews"),
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
+  });
+}
+
 export type Message = {
   id: string;
   name: string;
@@ -336,7 +431,10 @@ export type Message = {
   created_at: string;
 };
 
-export function useMessages(filter: "all" | "unread" = "all") {
+export function useMessages(
+  filter: "all" | "unread" = "all",
+  options?: { refetchInterval?: number },
+) {
   return useQuery({
     queryKey: queryKeys.messages.byFilter(filter),
     queryFn: () =>
@@ -347,6 +445,7 @@ export function useMessages(filter: "all" | "unread" = "all") {
       ),
     staleTime: 1000 * 60,
     gcTime: 1000 * 60 * 5,
+    ...options,
   });
 }
 
@@ -382,6 +481,139 @@ export function useDeleteMessage() {
         method: "DELETE",
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.messages.all }),
+  });
+}
+
+
+
+// ---- Comptes admin (back-office) ----
+
+export function useAdmins() {
+  return useQuery({
+    queryKey: queryKeys.admins.all,
+    queryFn: () =>
+      apiFetch<{ admins: AdminRow[] }>("/api/admins").then((r) => r.admins ?? []),
+    staleTime: 1000 * 60,
+  });
+}
+
+export type AdminInviteResult = {
+  success: boolean;
+  inviteUrl: string;
+  emailSent: boolean;
+};
+
+export function useInviteAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (email: string) =>
+      apiFetch<AdminInviteResult>("/api/admins", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.admins.all }),
+  });
+}
+
+export function useUpdateAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { id: string; status: "active" | "blocked" }) =>
+      apiFetch<{ success: boolean }>(`/api/admins/${args.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: args.status }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.admins.all }),
+  });
+}
+
+export function useDeleteAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ success: boolean }>(`/api/admins/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.admins.all }),
+  });
+}
+
+export type AdminResetResult = {
+  success: boolean;
+  resetUrl: string;
+  emailSent: boolean;
+};
+
+export function useResetAdminPassword() {
+  return useMutation({
+    mutationFn: (adminId: string) =>
+      apiFetch<AdminResetResult>("/api/admins/reset", {
+        method: "POST",
+        body: JSON.stringify({ adminId }),
+      }),
+  });
+}
+
+export function useLoginEvents() {
+  return useQuery({
+    queryKey: queryKeys.loginEvents,
+    queryFn: () =>
+      apiFetch<{ events: LoginEvent[] }>("/api/admins/login-events").then(
+        (r) => r.events ?? []
+      ),
+    staleTime: 1000 * 15,
+    refetchInterval: 1000 * 30,
+  });
+}
+
+// ---- Modération des avis (back-office) ----
+
+export function useAdminReviews() {
+  return useQuery({
+    queryKey: queryKeys.reviews.admin,
+    queryFn: () => apiFetch<AdminReview[]>("/api/reviews"),
+    staleTime: 1000 * 30,
+  });
+}
+
+export function useCreateReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { author: string; rating: number; comment: string }) => {
+      const created = await apiFetch<{ id: string }>("/api/reviews", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      try {
+        await apiFetch(`/api/reviews/${created.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "approved" }),
+        });
+      } catch {
+        throw new Error("Avis enregistré mais non publié : validez-le dans la liste.");
+      }
+      return created;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.reviews.all }),
+  });
+}
+
+export function useSetReviewStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { id: string; status: "approved" | "rejected" }) =>
+      apiFetch<{ success: boolean }>(`/api/reviews/${args.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: args.status }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.reviews.all }),
+  });
+}
+
+export function useDeleteReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<{ success: boolean }>(`/api/reviews/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.reviews.all }),
   });
 }
 

@@ -12,6 +12,7 @@ import { respondInternalError, siteOrigin } from "../../lib/http.js";
 import { createRateLimiter } from "../../lib/rate-limit.js";
 import { hashPassword, hashToken } from "../../lib/password.js";
 import { sendPasswordResetEmail } from "../../lib/email.js";
+import { recordAudit } from "../../lib/audit.js";
 
 const SESSION_MS = 1000 * 60 * 60 * 12; 
 const RESET_TTL_MS = 60 * 60 * 1000; 
@@ -75,8 +76,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: "Vous ne pouvez pas vous bloquer vous-même" });
       }
 
-      const target = await query<{ id: string; role: string }>(
-        "SELECT id, role FROM admins WHERE id = $1",
+      const target = await query<{ id: string; role: string; email: string }>(
+        "SELECT id, role, email FROM admins WHERE id = $1",
         targetId
       );
       if (!target[0]) return res.status(404).json({ error: "Admin introuvable" });
@@ -90,6 +91,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           body.status,
           targetId
         );
+        await recordAudit({
+          action: body.status === "blocked" ? "admin.block" : "admin.unblock",
+          entityType: "admin",
+          entityId: targetId,
+          actor: admin,
+          req,
+          metadata: { email: target[0].email, status: body.status },
+        });
         return res.status(200).json({ success: true, status: body.status });
       }
       return res.status(400).json({ error: "Action non reconnue." });
@@ -101,8 +110,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: "Vous ne pouvez pas supprimer votre propre compte" });
       }
 
-      const target = await query<{ id: string; role: string }>(
-        "SELECT id, role FROM admins WHERE id = $1",
+      const target = await query<{ id: string; role: string; email: string }>(
+        "SELECT id, role, email FROM admins WHERE id = $1",
         targetId
       );
       if (!target[0]) return res.status(404).json({ error: "Admin introuvable" });
@@ -111,6 +120,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       await query("DELETE FROM admins WHERE id = $1", targetId);
+      await recordAudit({
+        action: "admin.delete",
+        entityType: "admin",
+        entityId: targetId,
+        actor: admin,
+        req,
+        metadata: { email: target[0].email },
+      });
       return res.status(200).json({ success: true });
     }
 
@@ -216,6 +233,15 @@ async function handleUpdateMe(
   }>("SELECT id, email, username, role, avatar FROM admins WHERE id = $1", admin.id);
   const a = fresh[0];
 
+  await recordAudit({
+    action: "admin.update",
+    entityType: "admin",
+    entityId: admin.id,
+    actor: admin,
+    req,
+    metadata: { fields: Object.keys(payload) },
+  });
+
   return res.status(200).json({
     success: true,
     admin: {
@@ -297,6 +323,15 @@ async function handleAcceptInvite(
   );
   res.setHeader("Set-Cookie", sessionCookie(req, tokenSession, Math.floor(SESSION_MS / 1000)));
 
+  await recordAudit({
+    action: "admin.accept",
+    entityType: "admin",
+    entityId: admin.id,
+    actor: { id: admin.id, email: admin.email, username, role: admin.role },
+    req,
+    metadata: { email: admin.email },
+  });
+
   return res.status(200).json({
     success: true,
     admin: { id: admin.id, email: admin.email, username, role: admin.role },
@@ -333,7 +368,20 @@ async function handleForgotPassword(
 
   
   if (!admin || admin.status !== "active") {
-    return res.status(200).json({ success: true, emailSent: false });
+    await recordAudit({
+      action: "admin.forgot.request",
+      entityType: "admin",
+      entityId: admin?.id ?? null,
+      status: "failure",
+      req,
+      metadata: {
+        reason: admin ? "inactive_account" : "unknown_email",
+        ...(admin ? { email } : {}),
+      },
+    });
+    // Réponse volontairement identique pour un compte existant ou inconnu :
+    // cela évite de transformer cet endpoint en oracle d'énumération de comptes.
+    return res.status(200).json({ success: true });
   }
 
   
@@ -343,7 +391,15 @@ async function handleForgotPassword(
     admin.reset_requested_at &&
     Date.now() - new Date(admin.reset_requested_at).getTime() < RESET_COOLDOWN_MS
   ) {
-    return res.status(200).json({ success: true, emailSent: false });
+    await recordAudit({
+      action: "admin.forgot.request",
+      entityType: "admin",
+      entityId: admin.id,
+      status: "failure",
+      req,
+      metadata: { reason: "cooldown", email },
+    });
+    return res.status(200).json({ success: true });
   }
 
   const token = randomBytes(24).toString("hex");
@@ -359,7 +415,15 @@ async function handleForgotPassword(
   const url = resetUrl(req, token);
   const emailResult = await sendPasswordResetEmail({ to: email, resetUrl: url });
 
-  return res.status(200).json({ success: true, emailSent: emailResult.sent });
+  await recordAudit({
+    action: "admin.forgot.request",
+    entityType: "admin",
+    entityId: admin.id,
+    req,
+    metadata: { email, emailSent: emailResult.sent },
+  });
+
+  return res.status(200).json({ success: true });
 }
 
 
@@ -402,6 +466,15 @@ async function handleResetTrigger(
   const last = target[0].reset_requested_at;
   if (last && Date.now() - new Date(last).getTime() < RESET_COOLDOWN_MS) {
     const min = Math.ceil((RESET_COOLDOWN_MS - (Date.now() - new Date(last).getTime())) / 60000);
+    await recordAudit({
+      action: "admin.reset.request",
+      entityType: "admin",
+      entityId: adminId,
+      status: "failure",
+      actor: me,
+      req,
+      metadata: { reason: "cooldown", email: target[0].email },
+    });
     return res
       .status(429)
       .json({ error: `Un lien vient d'être envoyé. Réessayez dans ${min} min.` });
@@ -419,6 +492,15 @@ async function handleResetTrigger(
 
   const url = resetUrl(req, token);
   const emailResult = await sendPasswordResetEmail({ to: target[0].email, resetUrl: url });
+
+  await recordAudit({
+    action: "admin.reset.request",
+    entityType: "admin",
+    entityId: adminId,
+    actor: me,
+    req,
+    metadata: { email: target[0].email, emailSent: emailResult.sent },
+  });
 
   return res.status(200).json({
     success: true,
@@ -480,6 +562,20 @@ async function handleResetAccept(
     sessionIssuedAt(updated[0]?.password_changed_at)
   );
   res.setHeader("Set-Cookie", sessionCookie(req, tokenSession, Math.floor(SESSION_MS / 1000)));
+
+  await recordAudit({
+    action: "admin.reset.accept",
+    entityType: "admin",
+    entityId: admin.id,
+    actor: {
+      id: admin.id,
+      email: admin.email,
+      username: admin.username,
+      role: admin.role,
+    },
+    req,
+    metadata: { email: admin.email },
+  });
 
   return res.status(200).json({
     success: true,

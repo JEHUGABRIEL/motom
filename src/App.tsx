@@ -1,28 +1,40 @@
-import { useState, useEffect } from "react";
+import { Suspense, lazy, useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route, useLocation } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import WhatsAppButton from "./components/WhatsAppButton";
 import PromoBanner from "./components/PromoBanner";
 import ScrollToTop from "./components/ScrollToTop";
-import Home from "./pages/Home";
-import About from "./pages/About";
-import Vente from "./pages/Vente";
-import Location from "./pages/Location";
-import PropertyDetails from "./pages/PropertyDetails";
-import Vehicles from "./pages/Vehicles";
-import VehiculesLocation from "./pages/VehiculesLocation";
-import VehiculesVente from "./pages/VehiculesVente";
-import VehicleDetails from "./pages/VehicleDetails";
-import Services from "./pages/Services";
-import PolePage from "./pages/PolePage";
-import Contact from "./pages/Contact";
-import LegalPage from "./pages/LegalPage";
-import Admin from "./pages/Admin";
-import AdminInvite from "./pages/AdminInvite";
-import AdminReset from "./pages/AdminReset";
 import LoadingScreen from "./components/LoadingScreen";
+
+// Les pages sont chargées à la demande : le bundle d'entrée reste léger et
+// le back-office n'est téléchargé qu'à l'ouverture de /admin.
+const Home = lazy(() => import("./pages/Home"));
+const About = lazy(() => import("./pages/About"));
+const Vente = lazy(() => import("./pages/Vente"));
+const Location = lazy(() => import("./pages/Location"));
+const PropertyDetails = lazy(() => import("./pages/PropertyDetails"));
+const Vehicles = lazy(() => import("./pages/Vehicles"));
+const VehiculesLocation = lazy(() => import("./pages/VehiculesLocation"));
+const VehiculesVente = lazy(() => import("./pages/VehiculesVente"));
+const VehicleDetails = lazy(() => import("./pages/VehicleDetails"));
+const Services = lazy(() => import("./pages/Services"));
+const PolePage = lazy(() => import("./pages/PolePage"));
+const Contact = lazy(() => import("./pages/Contact"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const Admin = lazy(() => import("./pages/Admin"));
+const AdminInvite = lazy(() => import("./pages/AdminInvite"));
+const AdminReset = lazy(() => import("./pages/AdminReset"));
+
+function PageFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center bg-white">
+      <Loader2 size={20} className="animate-spin text-gold-dark" />
+    </div>
+  );
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,11 +64,13 @@ function App() {
   if (isAdmin) {
     return (
       <QueryClientProvider client={queryClient}>
-        <Routes>
-          <Route path="/admin/invite" element={<AdminInvite />} />
-          <Route path="/admin/reset" element={<AdminReset />} />
-          <Route path="/admin" element={<Admin />} />
-        </Routes>
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            <Route path="/admin/invite" element={<AdminInvite />} />
+            <Route path="/admin/reset" element={<AdminReset />} />
+            <Route path="/admin" element={<Admin />} />
+          </Routes>
+        </Suspense>
       </QueryClientProvider>
     );
   }
@@ -67,6 +81,7 @@ function App() {
         <ScrollToTop />
         <Navbar />
         <main className="flex-1">
+          <Suspense fallback={<PageFallback />}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/a-propos" element={<About />} />
@@ -86,6 +101,7 @@ function App() {
             <Route path="/confidentialite" element={<LegalPage kind="privacy" />} />
             <Route path="/mentions-legales" element={<LegalPage kind="legal" />} />
           </Routes>
+          </Suspense>
         </main>
         <Footer />
         <WhatsAppButton />

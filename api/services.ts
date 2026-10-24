@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { query } from "../lib/db.js";
 import { requireAdmin } from "../lib/auth.js";
 import { respondInternalError } from "../lib/http.js";
+import { recordAudit } from "../lib/audit.js";
 import { partialUpdate, textField, booleanField } from "../lib/update.js";
 import { isValidId } from "../lib/validate.js";
 
@@ -15,7 +16,8 @@ const SERVICE_FIELDS = [
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === "PUT" || req.method === "DELETE") {
-      if (!await requireAdmin(req, res)) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       const { id } = req.query;
       if (!id || typeof id !== "string") {
         return res.status(400).json({ error: "Missing service id" });
@@ -30,9 +32,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           body ?? {}
         );
         if (!ok) return;
+        await recordAudit({
+          action: "service.update",
+          entityType: "service",
+          entityId: id,
+          actor: admin,
+          req,
+          metadata: { fields: Object.keys(body ?? {}) },
+        });
         return res.status(200).json({ success: true });
       }
       await query("DELETE FROM services WHERE id = $1", id);
+      await recordAudit({
+        action: "service.delete",
+        entityType: "service",
+        entityId: id,
+        actor: admin,
+        req,
+      });
       return res.status(200).json({ success: true });
     }
 
@@ -51,7 +68,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
-      if (!await requireAdmin(req, res)) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
       const { id, title, text, points, active } = body;
 
@@ -74,6 +92,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         id, title, text || "", JSON.stringify(points || []),
         active !== false
       );
+
+      await recordAudit({
+        action: "service.create",
+        entityType: "service",
+        entityId: id,
+        actor: admin,
+        req,
+        metadata: { title },
+      });
 
       return res.status(201).json({ success: true, id });
     }

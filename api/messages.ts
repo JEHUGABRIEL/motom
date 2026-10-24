@@ -3,6 +3,7 @@ import { query } from "../lib/db.js";
 import { requireAdmin } from "../lib/auth.js";
 import { respondInternalError } from "../lib/http.js";
 import { createRateLimiter } from "../lib/rate-limit.js";
+import { recordAudit } from "../lib/audit.js";
 
 
 const messageLimiter = createRateLimiter({
@@ -24,16 +25,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { id } = req.query;
     if (id && typeof id === "string") {
       if (req.method === "PUT") {
-        if (!await requireAdmin(req, res)) return;
+        const admin = await requireAdmin(req, res);
+        if (!admin) return;
         const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
         if (body.read !== undefined) {
           await query("UPDATE messages SET read = $1 WHERE id = $2", body.read, id);
+          await recordAudit({
+            action: "message.read",
+            entityType: "message",
+            entityId: id,
+            actor: admin,
+            req,
+            metadata: { read: Boolean(body.read) },
+          });
         }
         return res.status(200).json({ success: true });
       }
       if (req.method === "DELETE") {
-        if (!await requireAdmin(req, res)) return;
+        const admin = await requireAdmin(req, res);
+        if (!admin) return;
         await query("DELETE FROM messages WHERE id = $1", id);
+        await recordAudit({
+          action: "message.delete",
+          entityType: "message",
+          entityId: id,
+          actor: admin,
+          req,
+        });
         return res.status(200).json({ success: true });
       }
       return res.status(405).json({ error: "Method not allowed" });
@@ -82,6 +100,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
         id, name, email, phone, subject, message, false
       );
+
+      await recordAudit({
+        action: "message.create",
+        entityType: "message",
+        entityId: id,
+        req,
+        metadata: { subject },
+      });
 
       return res.status(201).json({ success: true, id });
     }
