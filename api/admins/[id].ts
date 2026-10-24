@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { query } from "../../lib/db.js";
 import {
@@ -10,13 +10,13 @@ import {
 } from "../../lib/auth.js";
 import { adminOrigin, respondInternalError } from "../../lib/http.js";
 import { createDbRateLimiter } from "../../lib/rate-limit.js";
-import { hashPassword, hashToken } from "../../lib/password.js";
-import { sendPasswordResetEmail } from "../../lib/email.js";
+import { generateTempPassword, hashPassword, hashToken } from "../../lib/password.js";
+import { sendTemporaryPasswordEmail } from "../../lib/email.js";
 import { recordAudit } from "../../lib/audit.js";
 
 const SESSION_MS = 1000 * 60 * 60 * 12; 
-const RESET_TTL_MS = 60 * 60 * 1000; 
-const RESET_COOLDOWN_MS = 5 * 60 * 1000;
+// Durée de vie du mot de passe temporaire remis par le super administrateur.
+const TEMP_PASSWORD_TTL_MS = 48 * 60 * 60 * 1000;
 
 // ---- Journal d'audit (/api/audit, réécrit vers /api/admins/audit) ----
 
@@ -40,6 +40,12 @@ const auditImportLimiter = createDbRateLimiter({
   windowMs: 1000 * 60 * 60,
   max: 10,
   label: "audit-import",
+});
+
+const tempPasswordLimiter = createDbRateLimiter({
+  windowMs: 1000 * 60 * 60,
+  max: 10,
+  label: "temp-password",
 });
 
 const auditPurgeLimiter = createDbRateLimiter({
@@ -132,18 +138,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       
-      if (route === "reset-accept") {
-        return await handleResetAccept(req, res, body);
-      }
-
-      
       if (route === "reset") {
-        return await handleResetTrigger(req, res, body);
-      }
-
-      
-      if (route === "forgot-password") {
-        return await handleForgotPassword(req, res, body);
+        return await handleTempPassword(req, res, body);
       }
 
       // Import d'un journal exporté (sauvegarde / transfert d'environnement).
@@ -431,159 +427,64 @@ async function handleAcceptInvite(
 }
 
 
-const forgotLimiter = createDbRateLimiter({
-  windowMs: 1000 * 60 * 15,
-  max: 3,
-  label: "forgot-password",
-});
-
-
-
-
-async function handleForgotPassword(
-  req: VercelRequest,
-  res: VercelResponse,
-  body: Record<string, unknown>
-) {
-  if (!(await forgotLimiter(req, res))) return;
-
-  const email = String(body?.email ?? "").trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: "Adresse email invalide" });
-  }
-
-  const rows = await query<{ id: string; status: string; reset_requested_at: string | null }>(
-    "SELECT id, status, reset_requested_at FROM admins WHERE LOWER(email) = $1",
-    email
-  );
-  const admin = rows[0];
-
-  
-  if (!admin || admin.status !== "active") {
-    await recordAudit({
-      action: "admin.forgot.request",
-      entityType: "admin",
-      entityId: admin?.id ?? null,
-      status: "failure",
-      req,
-      metadata: {
-        reason: admin ? "inactive_account" : "unknown_email",
-        ...(admin ? { email } : {}),
-      },
-    });
-    // Réponse volontairement identique pour un compte existant ou inconnu :
-    // cela évite de transformer cet endpoint en oracle d'énumération de comptes.
-    return res.status(200).json({ success: true });
-  }
-
-  
-  
-  
-  if (
-    admin.reset_requested_at &&
-    Date.now() - new Date(admin.reset_requested_at).getTime() < RESET_COOLDOWN_MS
-  ) {
-    await recordAudit({
-      action: "admin.forgot.request",
-      entityType: "admin",
-      entityId: admin.id,
-      status: "failure",
-      req,
-      metadata: { reason: "cooldown", email },
-    });
-    return res.status(200).json({ success: true });
-  }
-
-  const token = randomBytes(24).toString("hex");
-  const expiresAt = new Date(Date.now() + RESET_TTL_MS);
-
-  await query(
-    "UPDATE admins SET reset_token = $1, reset_token_expires = $2, reset_requested_at = NOW(), updated_at = NOW() WHERE id = $3",
-    hashToken(token),
-    expiresAt.toISOString(),
-    admin.id
-  );
-
-  const url = resetUrl(token);
-  const emailResult = await sendPasswordResetEmail({ to: email, resetUrl: url });
-
-  await recordAudit({
-    action: "admin.forgot.request",
-    entityType: "admin",
-    entityId: admin.id,
-    req,
-    metadata: { email, emailSent: emailResult.sent },
-  });
-
-  return res.status(200).json({ success: true });
-}
-
-
-function resetUrl(token: string): string {
-  return `${adminOrigin()}/reset?token=${encodeURIComponent(token)}`;
-}
-
-
-async function handleResetTrigger(
+async function handleTempPassword(
   req: VercelRequest,
   res: VercelResponse,
   body: Record<string, unknown>
 ) {
   const me = await requireSuperAdmin(req, res);
   if (!me) return;
+  if (!(await tempPasswordLimiter(req, res))) return;
 
   const adminId = String(body?.adminId ?? "").trim();
   if (!adminId) return res.status(400).json({ error: "Compte manquant." });
 
   if (adminId === me.id) {
-    return res.status(400).json({ error: "Vous ne pouvez pas réinitialiser votre propre mot de passe ici" });
+    return res.status(400).json({
+      error: "Vous ne pouvez pas réinitialiser votre propre mot de passe ici",
+    });
   }
 
-  const target = await query<{
-    id: string;
-    role: string;
-    email: string;
-    status: string;
-    reset_requested_at: string | null;
-  }>(
-    "SELECT id, role, email, status, reset_requested_at FROM admins WHERE id = $1",
+  const target = await query<{ id: string; role: string; email: string; status: string }>(
+    "SELECT id, role, email, status FROM admins WHERE id = $1",
     adminId
   );
   if (!target[0]) return res.status(404).json({ error: "Admin introuvable" });
   if (target[0].role === "superadmin") {
-    return res.status(403).json({ error: "Impossible de réinitialiser le mot de passe du superadmin" });
-  }
-
-  
-  const last = target[0].reset_requested_at;
-  if (last && Date.now() - new Date(last).getTime() < RESET_COOLDOWN_MS) {
-    const min = Math.ceil((RESET_COOLDOWN_MS - (Date.now() - new Date(last).getTime())) / 60000);
-    await recordAudit({
-      action: "admin.reset.request",
-      entityType: "admin",
-      entityId: adminId,
-      status: "failure",
-      actor: me,
-      req,
-      metadata: { reason: "cooldown", email: target[0].email },
+    return res.status(403).json({
+      error: "Impossible de réinitialiser le mot de passe du superadmin",
     });
-    return res
-      .status(429)
-      .json({ error: `Un lien vient d'être envoyé. Réessayez dans ${min} min.` });
+  }
+  if (target[0].status !== "active") {
+    return res.status(400).json({ error: "Ce compte n'est pas actif." });
   }
 
-  const token = randomBytes(24).toString("hex");
-  const expiresAt = new Date(Date.now() + RESET_TTL_MS);
+  // Mot de passe aléatoire à usage unique : seul son hash est conservé côté
+  // serveur, et le compte est basculé en « changement obligatoire ».
+  const tempPassword = generateTempPassword();
+  const expiresAt = new Date(Date.now() + TEMP_PASSWORD_TTL_MS);
 
   await query(
-    "UPDATE admins SET reset_token = $1, reset_token_expires = $2, reset_requested_at = NOW(), updated_at = NOW() WHERE id = $3",
-    hashToken(token),
+    `UPDATE admins
+        SET temp_password_hash = $1,
+            temp_password_expires_at = $2,
+            must_change_password = TRUE,
+            failed_attempts = 0,
+            locked_until = NULL,
+            reset_requested_at = NOW(),
+            updated_at = NOW()
+      WHERE id = $3`,
+    hashPassword(tempPassword),
     expiresAt.toISOString(),
     adminId
   );
 
-  const url = resetUrl(token);
-  const emailResult = await sendPasswordResetEmail({ to: target[0].email, resetUrl: url });
+  const emailResult = await sendTemporaryPasswordEmail({
+    to: target[0].email,
+    tempPassword,
+    expiresAt,
+    loginUrl: `${adminOrigin()}/`,
+  });
 
   await recordAudit({
     action: "admin.reset.request",
@@ -591,12 +492,18 @@ async function handleResetTrigger(
     entityId: adminId,
     actor: me,
     req,
-    metadata: { email: target[0].email, emailSent: emailResult.sent },
+    metadata: {
+      email: target[0].email,
+      mode: "temporary_password",
+      expiresAt: expiresAt.toISOString(),
+      emailSent: emailResult.sent,
+    },
   });
 
   return res.status(200).json({
     success: true,
-    resetUrl: url,
+    tempPassword,
+    expiresAt: expiresAt.toISOString(),
     emailSent: emailResult.sent,
     emailError: emailResult.error ?? null,
     targetEmail: target[0].email,
@@ -604,76 +511,6 @@ async function handleResetTrigger(
 }
 
 
-async function handleResetAccept(
-  req: VercelRequest,
-  res: VercelResponse,
-  body: Record<string, unknown>
-) {
-  const token = String(body?.token ?? "").trim();
-  const password = String(body?.password ?? "");
-
-  if (!token) return res.status(400).json({ error: "Jeton de réinitialisation manquant" });
-  if (password.length < 8) {
-    return res.status(400).json({ error: "Le mot de passe doit contenir au moins 8 caractères" });
-  }
-
-  const rows = await query<{
-    id: string;
-    email: string;
-    username: string | null;
-    role: string;
-    status: string;
-    reset_token_expires: string;
-  }>(
-    "SELECT id, email, username, role, status, reset_token_expires FROM admins WHERE reset_token = $1",
-    hashToken(token)
-  );
-  const admin = rows[0];
-
-  if (!admin) {
-    return res.status(400).json({ error: "Jeton de réinitialisation invalide" });
-  }
-  if (admin.status !== "active") {
-    return res.status(400).json({ error: "Compte non actif" });
-  }
-  if (new Date(admin.reset_token_expires).getTime() < Date.now()) {
-    return res.status(400).json({ error: "Ce lien a expiré. Demandez une nouvelle réinitialisation." });
-  }
-
-  const updated = await query<{ password_changed_at: string | null }>(
-    "UPDATE admins SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL, password_changed_at = NOW(), updated_at = NOW() WHERE id = $2 RETURNING password_changed_at",
-    hashPassword(password),
-    admin.id
-  );
-
-  
-  
-  const tokenSession = createSessionToken(
-    SESSION_MS,
-    admin.id,
-    sessionIssuedAt(updated[0]?.password_changed_at)
-  );
-  res.setHeader("Set-Cookie", sessionCookie(req, tokenSession, Math.floor(SESSION_MS / 1000)));
-
-  await recordAudit({
-    action: "admin.reset.accept",
-    entityType: "admin",
-    entityId: admin.id,
-    actor: {
-      id: admin.id,
-      email: admin.email,
-      username: admin.username,
-      role: admin.role,
-    },
-    req,
-    metadata: { email: admin.email },
-  });
-
-  return res.status(200).json({
-    success: true,
-    admin: { id: admin.id, email: admin.email, username: admin.username, role: admin.role },
-  });
-}
 async function handleAuditLog(req: VercelRequest, res: VercelResponse) {
   const admin = await requireSuperAdmin(req, res);
   if (!admin) return;

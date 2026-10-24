@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { hashPassword, verifyPassword, hashToken } from "./password.js";
+import {
+  hashPassword,
+  verifyPassword,
+  hashToken,
+  passwordIssues,
+  generateTempPassword,
+  generateOtpCode,
+} from "./password.js";
 
 describe("hashPassword", () => {
   it("produit un hash au format scrypt$sel$empreinte", () => {
@@ -38,6 +45,53 @@ describe("verifyPassword", () => {
     const stored = hashPassword("bon");
     const [algo, salt] = stored.split("$");
     expect(verifyPassword("bon", `${algo}$${salt}$${"0".repeat(128)}`)).toBe(false);
+  });
+});
+
+describe("passwordIssues", () => {
+  it("accepte un mot de passe conforme", () => {
+    expect(passwordIssues("Motdepasse1!*")).toEqual([]);
+  });
+
+  it("signale chaque critère manquant", () => {
+    expect(passwordIssues("")).toEqual([
+      "8 caractères minimum",
+      "une majuscule",
+      "un chiffre",
+      "un caractère spécial",
+    ]);
+    expect(passwordIssues("motdepasse")).toEqual([
+      "une majuscule",
+      "un chiffre",
+      "un caractère spécial",
+    ]);
+    expect(passwordIssues("Motdepasse1")).toEqual(["un caractère spécial"]);
+    expect(passwordIssues("Motdepasse!")).toEqual(["un chiffre"]);
+    expect(passwordIssues("motdepasse1!")).toEqual(["une majuscule"]);
+    expect(passwordIssues("Mot1!")).toEqual(["8 caractères minimum"]);
+  });
+});
+
+describe("generateTempPassword", () => {
+  it("respecte la longueur et les règles de complexité", () => {
+    for (let i = 0; i < 50; i += 1) {
+      const temp = generateTempPassword();
+      expect(temp).toHaveLength(12);
+      expect(passwordIssues(temp)).toEqual([]);
+    }
+  });
+
+  it("ne se répète pas", () => {
+    const generated = new Set(Array.from({ length: 50 }, () => generateTempPassword()));
+    expect(generated.size).toBe(50);
+  });
+});
+
+describe("generateOtpCode", () => {
+  it("produit toujours 6 chiffres", () => {
+    for (let i = 0; i < 100; i += 1) {
+      expect(generateOtpCode()).toMatch(/^\d{6}$/);
+    }
   });
 });
 

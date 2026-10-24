@@ -180,6 +180,70 @@ export function mfaPendingCookie(req: VercelRequest, value: string, maxAge: numb
 export const MFA_PENDING_SECONDS = Math.floor(MFA_PENDING_MS / 1000);
 
 
+export const SESSION_SECONDS = 12 * 60 * 60;
+
+export type PendingScope = "password" | "otp";
+
+const PENDING_COOKIES: Record<PendingScope, string> = {
+  password: "motom_pwd",
+  otp: "motom_otp",
+};
+
+export const PENDING_TTL_SECONDS: Record<PendingScope, number> = {
+  password: 15 * 60,
+  otp: 15 * 60,
+};
+
+
+/**
+ * Jeton court signé qui relie une étape du parcours de connexion (mot de passe
+ * temporaire puis OTP) sans ouvrir de session : le cookie seul ne donne aucun
+ * accès aux routes protégées, il sert uniquement à l'étape suivante.
+ */
+export function createPendingToken(scope: PendingScope, adminId: string): string {
+  const exp = String(Date.now() + PENDING_TTL_SECONDS[scope] * 1000);
+  return `${exp}.${adminId}.${sign(`pending.${scope}.${exp}.${adminId}`)}`;
+}
+
+export function readPendingAdminId(
+  req: VercelRequest,
+  scope: PendingScope
+): string | null {
+  try {
+    const token = parseCookies(req.headers.cookie)[PENDING_COOKIES[scope]];
+    if (!token) return null;
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const [exp, adminId, sig] = parts;
+    if (!/^\d+$/.test(exp) || !adminId) return null;
+    if (Date.now() > Number(exp)) return null;
+    const expected = sign(`pending.${scope}.${exp}.${adminId}`);
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    return adminId;
+  } catch {
+    return null;
+  }
+}
+
+export function pendingCookie(
+  req: VercelRequest,
+  scope: PendingScope,
+  value: string,
+  maxAge: number = PENDING_TTL_SECONDS[scope]
+): string {
+  const parts = [
+    `${PENDING_COOKIES[scope]}=${value}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${maxAge}`,
+  ];
+  if (isSecure(req)) parts.push("Secure");
+  return parts.join("; ");
+}
+
 export function sessionCookie(req: VercelRequest, value: string, maxAge: number): string {
   const parts = [
     `${COOKIE_NAME}=${value}`,

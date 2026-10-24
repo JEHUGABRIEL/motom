@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { queryMock } = vi.hoisted(() => ({ queryMock: vi.fn() }));
 
 vi.mock("./db.js", () => ({ query: queryMock }));
-vi.mock("./email.js", () => ({ sendPasswordResetEmail: vi.fn() }));
+vi.mock("./email.js", () => ({}));
 vi.mock("./rate-limit.js", () => ({
   createRateLimiter: () => () => true,
   createDbRateLimiter: () => async () => true,
