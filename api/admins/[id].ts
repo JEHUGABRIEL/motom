@@ -445,16 +445,13 @@ async function handleTempPassword(
     });
   }
 
-  const target = await query<{ id: string; role: string; email: string; status: string }>(
-    "SELECT id, role, email, status FROM admins WHERE id = $1",
+  // Un superadmin peut réinitialiser n'importe quel compte, superadmin compris
+  // (mais jamais le sien : voir ci-dessus).
+  const target = await query<{ id: string; email: string; status: string }>(
+    "SELECT id, email, status FROM admins WHERE id = $1",
     adminId
   );
   if (!target[0]) return res.status(404).json({ error: "Admin introuvable" });
-  if (target[0].role === "superadmin") {
-    return res.status(403).json({
-      error: "Impossible de réinitialiser le mot de passe du superadmin",
-    });
-  }
   if (target[0].status !== "active") {
     return res.status(400).json({ error: "Ce compte n'est pas actif." });
   }
