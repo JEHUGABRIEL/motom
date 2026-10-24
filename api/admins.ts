@@ -5,6 +5,7 @@ import { requireAdmin, requireSuperAdmin } from "../lib/auth.js";
 import { respondInternalError, siteOrigin } from "../lib/http.js";
 import { sendInvitationEmail } from "../lib/email.js";
 import { hashToken } from "../lib/password.js";
+import { recordAudit } from "../lib/audit.js";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; 
 
@@ -98,6 +99,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const url = inviteUrl(req, token);
       const emailResult = await sendInvitationEmail({ to: email, inviteUrl: url });
+
+      await recordAudit({
+        action: "admin.invite",
+        entityType: "admin",
+        entityId: id,
+        actor: me,
+        req,
+        metadata: { email, emailSent: emailResult.sent },
+      });
 
       return res.status(201).json({
         success: true,

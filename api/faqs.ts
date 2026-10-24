@@ -2,12 +2,14 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { query } from "../lib/db.js";
 import { requireAdmin } from "../lib/auth.js";
 import { respondInternalError } from "../lib/http.js";
+import { recordAudit } from "../lib/audit.js";
 import { isValidId } from "../lib/validate.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === "PUT" || req.method === "DELETE") {
-      if (!await requireAdmin(req, res)) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       const { id } = req.query;
       if (!id || typeof id !== "string") {
         return res.status(400).json({ error: "Identifiant manquant." });
@@ -47,9 +49,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `UPDATE faqs SET ${sets.join(", ")} WHERE id = $${values.length}`,
           ...values
         );
+        await recordAudit({
+          action: "faq.update",
+          entityType: "faq",
+          entityId: id,
+          actor: admin,
+          req,
+          metadata: { fields: Object.keys(body ?? {}) },
+        });
         return res.status(200).json({ success: true });
       }
       await query("DELETE FROM faqs WHERE id = $1", id);
+      await recordAudit({
+        action: "faq.delete",
+        entityType: "faq",
+        entityId: id,
+        actor: admin,
+        req,
+      });
       return res.status(200).json({ success: true });
     }
 
@@ -68,7 +85,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
-      if (!await requireAdmin(req, res)) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
       const { id, question, answer, active, position } = body;
 
@@ -88,6 +106,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         id, String(question).trim(), String(answer).trim(),
         Number(position ?? 0), active !== false
       );
+
+      await recordAudit({
+        action: "faq.create",
+        entityType: "faq",
+        entityId: id,
+        actor: admin,
+        req,
+        metadata: { question: String(question).trim() },
+      });
 
       return res.status(201).json({ success: true, id });
     }

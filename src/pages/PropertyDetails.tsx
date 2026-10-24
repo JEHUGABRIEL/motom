@@ -15,7 +15,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import { formatPrice } from "../data/properties";
-import { useProperty, useProperties } from "../lib/api";
+import { useCreateMessage, useProperty, useProperties } from "../lib/api";
 import { formatPromoEnd, isPromoExpired } from "../lib/promo";
 import { site } from "../data/site";
 import PropertyCard from "../components/PropertyCard";
@@ -27,6 +27,7 @@ export default function PropertyDetails() {
   const { id } = useParams();
   const { data: property } = useProperty(id);
   const { data: properties = [] } = useProperties();
+  const createMessage = useCreateMessage();
   const [activeImage, setActiveImage] = useState(0);
 
   const [contactForm, setContactForm] = useState({ name: "", phone: "", message: "" });
@@ -59,15 +60,12 @@ export default function PropertyDetails() {
     e.preventDefault();
     setContactSending(true);
     try {
-      await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: contactForm.name,
-          phone: contactForm.phone,
-          subject: t("common.requestAbout", { item: property.title }),
-          message: contactForm.message,
-        }),
+      await createMessage.mutateAsync({
+        name: contactForm.name,
+        phone: contactForm.phone,
+        email: "",
+        subject: t("common.requestAbout", { item: property.title }),
+        message: contactForm.message,
       });
       setContactSent(true);
     } catch {

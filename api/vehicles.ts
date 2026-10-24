@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { query, serializeVehicle } from "../lib/db.js";
 import { requireAdmin } from "../lib/auth.js";
 import { respondInternalError } from "../lib/http.js";
+import { recordAudit } from "../lib/audit.js";
 import {
   sanitizeGallery,
   isHttpsUrl,
@@ -30,7 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
-      if (!await requireAdmin(req, res)) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
       const {
         id, name, brand, type, category, year, seats, transmission, fuel,
@@ -82,6 +84,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         JSON.stringify(sanitizeGallery(gallery) ?? []), description || "",
         JSON.stringify(features || [])
       );
+
+      await recordAudit({
+        action: "vehicle.create",
+        entityType: "vehicle",
+        entityId: id,
+        actor: admin,
+        req,
+        metadata: { name, type },
+      });
 
       return res.status(201).json({ success: true, id });
     }

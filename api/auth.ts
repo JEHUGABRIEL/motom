@@ -13,6 +13,7 @@ import { respondInternalError } from "../lib/http.js";
 import { query } from "../lib/db.js";
 import { verifyPassword } from "../lib/password.js";
 import { recordLogin } from "../lib/login-events.js";
+import { recordAudit } from "../lib/audit.js";
 import { handleMfa } from "../lib/mfa-handler.js";
 
 const SESSION_MS = 1000 * 60 * 60 * 12; 
@@ -60,6 +61,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const password = body?.password;
 
       if (!identifier || !password) {
+        await recordAudit({
+          action: "auth.login.failure",
+          entityType: "auth",
+          status: "failure",
+          req,
+          metadata: { reason: "missing_credentials" },
+        });
         return res.status(400).json({ error: "Identifiant et mot de passe requis" });
       }
 
@@ -92,6 +100,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       if (admin?.locked_until && new Date(admin.locked_until).getTime() > Date.now()) {
         const min = Math.ceil((new Date(admin.locked_until).getTime() - Date.now()) / 60000);
+        await recordAudit({
+          action: "auth.login.locked",
+          entityType: "auth",
+          entityId: admin.id,
+          status: "failure",
+          actor: admin,
+          req,
+          metadata: { reason: "locked", minutesRemaining: min },
+        });
         return res
           .status(429)
           .json({ error: `Trop de tentatives. Réessayez dans ${min} min.` });
@@ -100,9 +117,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!admin || !okPassword) {
         
         
+        let lock = false;
         if (admin) {
           const attempts = (admin.failed_attempts ?? 0) + 1;
-          const lock = attempts >= MAX_LOGIN_ATTEMPTS;
+          lock = attempts >= MAX_LOGIN_ATTEMPTS;
           await query(
             "UPDATE admins SET failed_attempts = $1, locked_until = $2 WHERE id = $3",
             lock ? 0 : attempts,
@@ -110,6 +128,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             admin.id
           ).catch(() => {});
         }
+        await recordAudit({
+          action: "auth.login.failure",
+          entityType: "auth",
+          entityId: admin?.id ?? null,
+          status: "failure",
+          actor: admin
+            ? {
+                id: admin.id,
+                email: admin.email,
+                username: admin.username,
+                role: admin.role,
+              }
+            : null,
+          req,
+          metadata: {
+            reason: admin ? "bad_password" : "unknown_identifier",
+            identifier: identifier.slice(0, 200),
+            ...(lock ? { accountLocked: true } : {}),
+          },
+        });
         return res.status(401).json({ error: "Identifiant ou mot de passe incorrect" });
       }
 
@@ -121,11 +159,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ).catch(() => {});
       }
       if (admin.status === "invited") {
+        await recordAudit({
+          action: "auth.login.blocked",
+          entityType: "auth",
+          entityId: admin.id,
+          status: "failure",
+          actor: admin,
+          req,
+          metadata: { reason: "invited" },
+        });
         return res.status(403).json({
           error: "Compte non activé : utilisez le lien d'invitation reçu par email",
         });
       }
       if (admin.status === "blocked") {
+        await recordAudit({
+          action: "auth.login.blocked",
+          entityType: "auth",
+          entityId: admin.id,
+          status: "failure",
+          actor: admin,
+          req,
+          metadata: { reason: "blocked" },
+        });
         return res.status(403).json({ error: "Compte bloqué. Contactez le superadmin." });
       }
 
@@ -136,6 +192,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         admin.id
       );
       if (mfa[0]) {
+        await recordAudit({
+          action: "auth.mfa.challenge",
+          entityType: "auth",
+          entityId: admin.id,
+          actor: admin,
+          req,
+          metadata: { method: "totp" },
+        });
         res.setHeader(
           "Set-Cookie",
           mfaPendingCookie(req, createMfaPendingToken(admin.id), MFA_PENDING_SECONDS)
@@ -167,6 +231,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     
     if (req.method === "DELETE") {
+      const admin = await getSessionAdmin(req);
+      if (admin) {
+        await recordAudit({
+          action: "auth.logout",
+          entityType: "auth",
+          entityId: admin.id,
+          actor: admin,
+          req,
+        });
+      }
       res.setHeader("Set-Cookie", sessionCookie(req, "", 0));
       return res.status(200).json({ success: true });
     }

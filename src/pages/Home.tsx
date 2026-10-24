@@ -19,7 +19,7 @@ import OfferCards from "../components/OfferCards";
 import ReviewsSection from "../components/ReviewsSection";
 import SocialIcons from "../components/SocialIcons";
 import CardSkeleton from "../components/CardSkeleton";
-import { useProperties, usePublicFaqs, useVehicles } from "../lib/api";
+import { useCreateMessage, useProperties, usePublicFaqs, useVehicles } from "../lib/api";
 import { site } from "../data/site";
 import type { Property } from "../data/properties";
 import { getPoleBySlug } from "../data/poles";
@@ -39,6 +39,7 @@ export default function Home() {
   const { data: apiFaqs = [] } = usePublicFaqs();
   const { data: allProperties = [], isLoading: propertiesLoading } = useProperties();
   const { data: allVehicles = [], isLoading: vehiclesLoading } = useVehicles();
+  const createMessage = useCreateMessage();
 
   const [heroTab, setHeroTab] = useState<"buy" | "rent">("buy");
   const [query, setQuery] = useState("");
@@ -108,12 +109,7 @@ export default function Home() {
     e.preventDefault();
     setAppointmentSending(true);
     try {
-      const res = await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(appointment),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await createMessage.mutateAsync(appointment);
       setAppointmentSent(true);
     } catch {
       alert(t("contact.form.error"));
@@ -212,23 +208,6 @@ export default function Home() {
               <Link to={heroSlides[currentSlide].to} className="btn btn-gold mt-5 px-8">
                 {t(`home.hero.cta.${currentSlide}`)}
               </Link>
-
-              <div className="mt-7 flex items-center gap-2">
-                {heroSlides.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setCurrentSlide(i)}
-                    aria-label={t("home.hero.goToSlide", { number: i + 1 })}
-                    aria-current={i === currentSlide}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      i === currentSlide
-                        ? "w-7 bg-gold"
-                        : "w-1.5 bg-white/40 hover:bg-white/70"
-                    }`}
-                  />
-                ))}
-              </div>
             </div>
           </div>
         </div>

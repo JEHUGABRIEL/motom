@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireAdmin } from "../lib/auth.js";
 import { respondInternalError } from "../lib/http.js";
+import { recordAudit } from "../lib/audit.js";
 
 const FOLDER = "motom";
 
@@ -13,7 +14,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   
-  if (!await requireAdmin(req, res)) return;
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
 
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
   const apiKey = process.env.CLOUDINARY_API_KEY;
@@ -39,6 +41,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const signature = createHash("sha1")
       .update(toSign + apiSecret)
       .digest("hex");
+
+    await recordAudit({
+      action: "media.sign",
+      entityType: "media",
+      actor: admin,
+      req,
+      metadata: { folder: FOLDER },
+    });
 
     return res.status(200).json({
       signature,

@@ -12,6 +12,7 @@ import {
 import { respondInternalError } from "./http.js";
 import { verifyPassword } from "./password.js";
 import { recordLogin } from "./login-events.js";
+import { recordAudit } from "./audit.js";
 import {
   createTotpSecret,
   totpUri,
@@ -41,6 +42,21 @@ async function getMfa(adminId: string): Promise<MfaRow | null> {
     "SELECT admin_id, secret, enabled, failed_attempts, locked_until, recovery_codes FROM admin_mfa WHERE admin_id = $1",
     adminId
   );
+  return rows[0] ?? null;
+}
+
+async function getAdminIdentity(adminId: string): Promise<{
+  id: string;
+  email: string;
+  username: string | null;
+  role: string;
+} | null> {
+  const rows = await query<{
+    id: string;
+    email: string;
+    username: string | null;
+    role: string;
+  }>("SELECT id, email, username, role FROM admins WHERE id = $1", adminId);
   return rows[0] ?? null;
 }
 
@@ -140,8 +156,16 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
     
     
     if (action === "verify" || action === "recovery") {
+      const mfaAction = action === "verify" ? "auth.mfa.verify" : "auth.mfa.recovery";
       const adminId = readMfaPending(req);
       if (!adminId) {
+        await recordAudit({
+          action: `${mfaAction}.failure`,
+          entityType: "auth",
+          status: "failure",
+          req,
+          metadata: { reason: "missing_pending_session" },
+        });
         return res.status(401).json({ error: "Session de vérification expirée. Reconnectez-vous." });
       }
       const row = await getMfa(adminId);
@@ -151,6 +175,15 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
 
       const remaining = lockoutRemaining(row);
       if (remaining > 0) {
+        await recordAudit({
+          action: `${mfaAction}.failure`,
+          entityType: "auth",
+          entityId: adminId,
+          status: "failure",
+          actor: await getAdminIdentity(adminId),
+          req,
+          metadata: { reason: "locked", minutesRemaining: remaining },
+        });
         return res
           .status(429)
           .json({ error: `Trop de tentatives. Réessayez dans ${remaining} min.` });
@@ -163,6 +196,15 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
         }
         if (!verifyTotp(secret, String(body?.code ?? ""))) {
           await registerFailure(row);
+          await recordAudit({
+            action: `${mfaAction}.failure`,
+            entityType: "auth",
+            entityId: adminId,
+            status: "failure",
+            actor: await getAdminIdentity(adminId),
+            req,
+            metadata: { reason: "invalid_code" },
+          });
           return res.status(401).json({ error: "Code incorrect ou expiré" });
         }
       } else {
@@ -172,6 +214,15 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
         );
         if (!result.ok) {
           await registerFailure(row);
+          await recordAudit({
+            action: `${mfaAction}.failure`,
+            entityType: "auth",
+            entityId: adminId,
+            status: "failure",
+            actor: await getAdminIdentity(adminId),
+            req,
+            metadata: { reason: "invalid_recovery_code" },
+          });
           return res.status(401).json({ error: "Code de secours invalide" });
         }
         await query(
@@ -181,6 +232,14 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
         );
       }
 
+      await recordAudit({
+        action: `${mfaAction}.success`,
+        entityType: "auth",
+        entityId: adminId,
+        actor: await getAdminIdentity(adminId),
+        req,
+        metadata: { method: action === "verify" ? "totp" : "recovery_code" },
+      });
       await clearFailures(adminId);
       return await openSession(req, res, adminId);
     }
@@ -210,6 +269,14 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
       
       
       const qrCode = await QRCode.toDataURL(uri, { margin: 1, width: 220 });
+      await recordAudit({
+        action: "auth.mfa.setup",
+        entityType: "auth",
+        entityId: admin.id,
+        actor: admin,
+        req,
+        metadata: { method: "totp" },
+      });
       return res.status(200).json({ uri, secret, qrCode });
     }
 
@@ -222,6 +289,15 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
       const secret = decryptSecret(row.secret);
       if (!secret) return res.status(500).json({ error: "Secret illisible. Relancez la configuration." });
       if (!verifyTotp(secret, String(body?.code ?? ""))) {
+        await recordAudit({
+          action: "auth.mfa.activate",
+          entityType: "auth",
+          entityId: admin.id,
+          status: "failure",
+          actor: admin,
+          req,
+          metadata: { reason: "invalid_code" },
+        });
         return res.status(401).json({ error: "Code incorrect ou expiré" });
       }
 
@@ -231,6 +307,13 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
         JSON.stringify(codes.map(hashRecoveryCode)),
         admin.id
       );
+      await recordAudit({
+        action: "auth.mfa.activate",
+        entityType: "auth",
+        entityId: admin.id,
+        actor: admin,
+        req,
+      });
       
       return res.status(200).json({ success: true, recoveryCodes: codes });
     }
@@ -244,9 +327,25 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
       );
       const hash = rows[0]?.password_hash;
       if (!hash || !verifyPassword(String(body?.password ?? ""), hash)) {
+        await recordAudit({
+          action: "auth.mfa.disable",
+          entityType: "auth",
+          entityId: admin.id,
+          status: "failure",
+          actor: admin,
+          req,
+          metadata: { reason: "bad_password" },
+        });
         return res.status(401).json({ error: "Mot de passe incorrect" });
       }
       await query("DELETE FROM admin_mfa WHERE admin_id = $1", admin.id);
+      await recordAudit({
+        action: "auth.mfa.disable",
+        entityType: "auth",
+        entityId: admin.id,
+        actor: admin,
+        req,
+      });
       return res.status(200).json({ success: true });
     }
 
@@ -262,6 +361,15 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
       );
       const hash = rows[0]?.password_hash;
       if (!hash || !verifyPassword(String(body?.password ?? ""), hash)) {
+        await recordAudit({
+          action: "auth.mfa.recovery-codes",
+          entityType: "auth",
+          entityId: admin.id,
+          status: "failure",
+          actor: admin,
+          req,
+          metadata: { reason: "bad_password" },
+        });
         return res.status(401).json({ error: "Mot de passe incorrect" });
       }
       const codes = generateRecoveryCodes();
@@ -270,6 +378,13 @@ export async function handleMfa(req: VercelRequest, res: VercelResponse) {
         JSON.stringify(codes.map(hashRecoveryCode)),
         admin.id
       );
+      await recordAudit({
+        action: "auth.mfa.recovery-codes",
+        entityType: "auth",
+        entityId: admin.id,
+        actor: admin,
+        req,
+      });
       return res.status(200).json({ success: true, recoveryCodes: codes });
     }
 

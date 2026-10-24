@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Megaphone, X, ArrowRight, MessageCircle, Timer } from "lucide-react";
 import { properties, formatPrice } from "../data/properties";
 import { vehicles, formatVehiclePrice } from "../data/vehicles";
+import { useProperties, useVehicles } from "../lib/api";
 import {
   isPromoActive,
   isPromoExpired,
@@ -53,8 +54,9 @@ const COUNTDOWN_TICK_MS = 30_000;
 
 export default function PromoBanner() {
   const { t, i18n } = useTranslation();
+  const { data: apiProperties, isFetched: propertiesFetched } = useProperties();
+  const { data: apiVehicles, isFetched: vehiclesFetched } = useVehicles();
   const [visible, setVisible] = useState(true);
-  const [apiPromos, setApiPromos] = useState<PromoItem[] | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [contactItem, setContactItem] = useState<{
     kind: "property" | "vehicle";
@@ -67,58 +69,38 @@ export default function PromoBanner() {
     if (!visible || dismissed) return;
     const timer = setTimeout(() => setVisible(false), AUTO_CLOSE_MS);
     return () => clearTimeout(timer);
-  }, [visible, dismissed, apiPromos]);
+  }, [visible, dismissed]);
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.allSettled([
-      fetch("/api/properties").then((r) => (r.ok ? r.json() : Promise.reject())),
-      fetch("/api/vehicles").then((r) => (r.ok ? r.json() : Promise.reject())),
-    ])
-      .then(([propsRes, vehsRes]) => {
-        if (cancelled) return;
-        const props =
-          propsRes.status === "fulfilled"
-            ? (propsRes.value as typeof properties)
-            : [];
-        const vehs =
-          vehsRes.status === "fulfilled"
-            ? (vehsRes.value as typeof vehicles)
-            : [];
-        if (props.length === 0 && vehs.length === 0) return; 
-        const items: PromoItem[] = [
-          ...props
-            .filter((p: (typeof properties)[number]) => isPromoActive(p) && !p.promoPaused)
-            .map((p) => ({
-              kind: "property" as const,
-              id: p.id,
-              title: p.title,
-              price: formatPrice(p.price, p.priceUnit),
-              image: p.image,
-              to: `/proprietes/${p.id}`,
-              promoEndsAt: p.promoEndsAt ?? null,
-            })),
-          ...vehs
-            .filter((v: (typeof vehicles)[number]) => isPromoActive(v) && !v.promoPaused)
-            .map((v) => ({
-              kind: "vehicle" as const,
-              id: v.id,
-              title: v.name,
-              price: formatVehiclePrice(v.price, v.priceUnit),
-              image: v.image,
-              to: `/vehicules/${v.id}`,
-              promoEndsAt: v.promoEndsAt ?? null,
-            })),
-        ];
-        setApiPromos(items);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const promos = apiPromos !== null ? apiPromos : STATIC_PROMOS;
+  const promos = useMemo<PromoItem[]>(() => {
+    if (!propertiesFetched || !vehiclesFetched) return STATIC_PROMOS;
+    const props = apiProperties ?? [];
+    const vehs = apiVehicles ?? [];
+    if (props.length === 0 && vehs.length === 0) return STATIC_PROMOS;
+    return [
+      ...props
+        .filter((p) => isPromoActive(p) && !p.promoPaused)
+        .map((p) => ({
+          kind: "property" as const,
+          id: p.id,
+          title: p.title,
+          price: formatPrice(p.price, p.priceUnit),
+          image: p.image,
+          to: `/proprietes/${p.id}`,
+          promoEndsAt: p.promoEndsAt ?? null,
+        })),
+      ...vehs
+        .filter((v) => isPromoActive(v) && !v.promoPaused)
+        .map((v) => ({
+          kind: "vehicle" as const,
+          id: v.id,
+          title: v.name,
+          price: formatVehiclePrice(v.price, v.priceUnit),
+          image: v.image,
+          to: `/vehicules/${v.id}`,
+          promoEndsAt: v.promoEndsAt ?? null,
+        })),
+    ];
+  }, [apiProperties, apiVehicles, propertiesFetched, vehiclesFetched]);
 
   // Horloge partagée : un seul tick pour rafraîchir tous les comptes à rebours.
   const [now, setNow] = useState(() => Date.now());

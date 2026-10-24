@@ -6,9 +6,11 @@ import SectionHeading from "../components/SectionHeading";
 import PageHero from "../components/PageHero";
 import { site } from "../data/site";
 import { poles } from "../data/poles";
+import { useCreateMessage } from "../lib/api";
 
 export default function Contact() {
   const { t } = useTranslation();
+  const createMessage = useCreateMessage();
   const [searchParams] = useSearchParams();
   const requested = poles.find((p) => p.slug === searchParams.get("sujet"));
   const [sent, setSent] = useState(false);
@@ -29,12 +31,7 @@ export default function Contact() {
     e.preventDefault();
     setSending(true);
     try {
-      const res = await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await createMessage.mutateAsync(form);
       setSent(true);
     } catch {
       alert(t("contact.form.error"));

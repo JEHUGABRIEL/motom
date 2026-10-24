@@ -16,7 +16,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import { formatVehiclePrice } from "../data/vehicles";
-import { useVehicle, useVehicles } from "../lib/api";
+import { useCreateMessage, useVehicle, useVehicles } from "../lib/api";
 import { formatPromoEnd, isPromoExpired } from "../lib/promo";
 import { site } from "../data/site";
 import VehicleCard from "../components/VehicleCard";
@@ -28,6 +28,7 @@ export default function VehicleDetails() {
   const { id } = useParams();
   const { data: vehicle } = useVehicle(id);
   const { data: vehicles = [] } = useVehicles();
+  const createMessage = useCreateMessage();
   const [activeImage, setActiveImage] = useState(0);
 
   const [contactForm, setContactForm] = useState({ name: "", phone: "", message: "" });
@@ -64,15 +65,12 @@ export default function VehicleDetails() {
     e.preventDefault();
     setContactSending(true);
     try {
-      await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: contactForm.name,
-          phone: contactForm.phone,
-          subject: t("common.requestAbout", { item: vehicle.name }),
-          message: contactForm.message,
-        }),
+      await createMessage.mutateAsync({
+        name: contactForm.name,
+        phone: contactForm.phone,
+        email: "",
+        subject: t("common.requestAbout", { item: vehicle.name }),
+        message: contactForm.message,
       });
       setContactSent(true);
     } catch {

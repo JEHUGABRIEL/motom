@@ -3,6 +3,7 @@ import { query } from "../lib/db.js";
 import { requireAdmin, getSessionAdmin } from "../lib/auth.js";
 import { respondInternalError } from "../lib/http.js";
 import { createRateLimiter } from "../lib/rate-limit.js";
+import { recordAudit } from "../lib/audit.js";
 
 
 const reviewLimiter = createRateLimiter({
@@ -30,11 +31,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: "Statut non reconnu." });
         }
         await query("UPDATE reviews SET status = $1 WHERE id = $2", status, id);
+        await recordAudit({
+          action: status === "approved" ? "review.approve" : "review.reject",
+          entityType: "review",
+          entityId: id,
+          actor: admin,
+          req,
+          metadata: { status },
+        });
         return res.status(200).json({ success: true, status });
       }
 
       if (req.method === "DELETE") {
         await query("DELETE FROM reviews WHERE id = $1", id);
+        await recordAudit({
+          action: "review.delete",
+          entityType: "review",
+          entityId: id,
+          actor: admin,
+          req,
+        });
         return res.status(200).json({ success: true });
       }
 
@@ -93,6 +109,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         "INSERT INTO reviews (id, author, avatar, rating, comment, status, created_at) VALUES ($1, $2, $3, $4, $5, 'pending', NOW())",
         id, author, avatar, rating, comment
       );
+
+      await recordAudit({
+        action: "review.create",
+        entityType: "review",
+        entityId: id,
+        req,
+        metadata: { rating },
+      });
 
       return res.status(201).json({ success: true, id });
     }

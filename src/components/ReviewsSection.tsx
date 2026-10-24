@@ -3,15 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import SectionHeading from "./SectionHeading";
-
-type Review = {
-  id: string;
-  author: string;
-  avatar?: string;
-  rating: number;
-  comment: string;
-  created_at?: string;
-};
+import { useReviews, type Review } from "../lib/api";
 
 function Avatar({ review }: { review: Review }) {
   const initials = review.author
@@ -37,19 +29,42 @@ function Avatar({ review }: { review: Review }) {
   );
 }
 
+function getReviewsPerSlide(): number {
+  if (typeof window === "undefined") return 1;
+  if (window.matchMedia("(min-width: 1024px)").matches) return 3;
+  if (window.matchMedia("(min-width: 768px)").matches) return 2;
+  return 1;
+}
+
 export default function ReviewsSection() {
   const { t } = useTranslation();
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: reviews = [], isLoading: loading } = useReviews();
   const [slideIndex, setSlideIndex] = useState(0);
+  const [reviewsPerSlide, setReviewsPerSlide] = useState(getReviewsPerSlide);
 
   useEffect(() => {
-    fetch("/api/reviews")
-      .then((r) => r.json())
-      .then((rows) => setReviews(Array.isArray(rows) ? rows : []))
-      .catch(() => setReviews([]))
-      .finally(() => setLoading(false));
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const tablet = window.matchMedia("(min-width: 768px)");
+
+    const update = () => {
+      setReviewsPerSlide(desktop.matches ? 3 : tablet.matches ? 2 : 1);
+    };
+
+    update();
+    desktop.addEventListener("change", update);
+    tablet.addEventListener("change", update);
+    return () => {
+      desktop.removeEventListener("change", update);
+      tablet.removeEventListener("change", update);
+    };
   }, []);
+
+  useEffect(() => {
+    setSlideIndex(0);
+  }, [reviews.length, reviewsPerSlide]);
+
+  const slideCount = Math.ceil(reviews.length / reviewsPerSlide);
+  const activeSlide = Math.min(slideIndex, Math.max(slideCount - 1, 0));
 
   const stars = (n: number) => (
     <span className="flex items-center gap-0.5">
@@ -84,8 +99,9 @@ export default function ReviewsSection() {
     );
   }
 
-  const nextSlide = () => setSlideIndex((i) => (i + 1) % reviews.length);
-  const prevSlide = () => setSlideIndex((i) => (i - 1 + reviews.length) % reviews.length);
+  const nextSlide = () => setSlideIndex((activeSlide + 1) % slideCount);
+  const prevSlide = () =>
+    setSlideIndex((activeSlide - 1 + slideCount) % slideCount);
 
   const card = (r: Review) => (
     <div className="flex h-full flex-col rounded-xl border border-line bg-white p-6">
@@ -105,6 +121,13 @@ export default function ReviewsSection() {
     </div>
   );
 
+  const slides = Array.from({ length: slideCount }, (_, index) =>
+    reviews.slice(
+      index * reviewsPerSlide,
+      index * reviewsPerSlide + reviewsPerSlide,
+    ),
+  );
+
   return (
     <section className="bg-sand py-20 md:py-24">
       <div className="container-page">
@@ -113,17 +136,12 @@ export default function ReviewsSection() {
           description={t("home.testimonials.description")}
         />
 
-        <div className="mt-12 hidden grid-cols-3 gap-6 lg:grid">
-          {reviews.slice(0, 6).map((r) => (
-            <div key={r.id}>{card(r)}</div>
-          ))}
-        </div>
-
-        <div className="mt-10 lg:hidden">
+        <div className="mt-12">
           <div className="relative">
-            {reviews.length > 1 && (
+            {slideCount > 1 && (
               <>
                 <button
+                  type="button"
                   onClick={prevSlide}
                   className="absolute -left-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-white text-ink"
                   aria-label={t("home.reviews.prev")}
@@ -131,6 +149,7 @@ export default function ReviewsSection() {
                   <ChevronLeft size={17} />
                 </button>
                 <button
+                  type="button"
                   onClick={nextSlide}
                   className="absolute -right-1 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-white text-ink"
                   aria-label={t("home.reviews.next")}
@@ -142,29 +161,37 @@ export default function ReviewsSection() {
             <div className="overflow-hidden">
               <div
                 className="flex transition-transform duration-500 ease-out"
-                style={{ transform: `translateX(-${slideIndex * 100}%)` }}
+                style={{ transform: `translateX(-${activeSlide * 100}%)` }}
               >
-                {reviews.map((r) => (
-                  <div key={r.id} className="w-full shrink-0 px-1">
-                    {card(r)}
+                {slides.map((slide, index) => (
+                  <div key={index} className="w-full shrink-0 px-1">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {slide.map((r) => (
+                        <div key={r.id}>{card(r)}</div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="mt-4 flex justify-center gap-1.5">
-            {reviews.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setSlideIndex(i)}
-                className={`h-1 rounded-full transition-all duration-300 ${
-                  i === slideIndex ? "w-6 bg-ink" : "w-1.5 bg-line"
-                }`}
-                aria-label={t("home.goToProperty", { number: i + 1 })}
-              />
-            ))}
-          </div>
+          {slideCount > 1 && (
+            <div className="mt-4 flex justify-center gap-1.5">
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setSlideIndex(index)}
+                  aria-label={t("home.testimonialPage", { number: index + 1 })}
+                  aria-current={index === activeSlide}
+                  className={`h-1 rounded-full transition-all duration-300 ${
+                    index === activeSlide ? "w-6 bg-ink" : "w-1.5 bg-line"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>
