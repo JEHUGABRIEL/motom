@@ -2,11 +2,11 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { query } from "../lib/db.js";
 import { requireAdmin, getSessionAdmin } from "../lib/auth.js";
 import { respondInternalError } from "../lib/http.js";
-import { createRateLimiter } from "../lib/rate-limit.js";
+import { createDbRateLimiter } from "../lib/rate-limit.js";
 import { recordAudit } from "../lib/audit.js";
 
 
-const reviewLimiter = createRateLimiter({
+const reviewLimiter = createDbRateLimiter({
   windowMs: 1000 * 60 * 10,
   max: 3,
   label: "review",
@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     
     if (req.method === "POST") {
-      if (!reviewLimiter(req, res)) return;
+      if (!(await reviewLimiter(req, res))) return;
 
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
       const author = String(body?.author || "").trim();

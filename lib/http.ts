@@ -32,6 +32,18 @@ export function siteOrigin(req: VercelRequest): string {
 }
 
 
+const DEFAULT_ADMIN_URL = "https://motom-admin.vercel.app";
+
+/**
+ * URL publique du back-office (dépôt motom-admin). Les e-mails d'invitation et de
+ * réinitialisation pointent vers cette origine, distincte de celle du site.
+ */
+export function adminOrigin(): string {
+  const configured = process.env.ADMIN_URL?.trim();
+  return (configured || DEFAULT_ADMIN_URL).replace(/\/+$/, "");
+}
+
+
 export function clientIp(req: VercelRequest): string {
   const forwarded = req.headers["x-forwarded-for"];
   const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;

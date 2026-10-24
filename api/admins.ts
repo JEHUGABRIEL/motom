@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { query } from "../lib/db.js";
 import { requireAdmin, requireSuperAdmin } from "../lib/auth.js";
-import { respondInternalError, siteOrigin } from "../lib/http.js";
+import { adminOrigin, respondInternalError } from "../lib/http.js";
 import { sendInvitationEmail } from "../lib/email.js";
 import { hashToken } from "../lib/password.js";
 import { recordAudit } from "../lib/audit.js";
@@ -28,8 +28,8 @@ function publicAdmin(row: {
 }
 
 
-function inviteUrl(req: VercelRequest, token: string): string {
-  return `${siteOrigin(req)}/admin/invite?token=${encodeURIComponent(token)}`;
+function inviteUrl(token: string): string {
+  return `${adminOrigin()}/invite?token=${encodeURIComponent(token)}`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -97,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         expiresAt.toISOString()
       );
 
-      const url = inviteUrl(req, token);
+      const url = inviteUrl(token);
       const emailResult = await sendInvitationEmail({ to: email, inviteUrl: url });
 
       await recordAudit({

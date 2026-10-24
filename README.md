@@ -1,8 +1,20 @@
 # MOTOM — Site web de l'Agence Immobilière
 
-Site vitrine et back-office de l'**Agence Immobilière MOTOM** (PK11, près de la station
+Site vitrine de l'**Agence Immobilière MOTOM** (PK11, près de la station
 Sassou, Bangui – RCA) — *« Votre projet immobilier, notre priorité ! »*.
 React + Vite + TypeScript + Tailwind CSS v4, API serverless Vercel + Neon Postgres.
+
+## Deux dépôts, deux URL
+
+| Application | Dépôt | URL |
+| --- | --- | --- |
+| Site public + API | `JEHUGABRIEL/motom` (ce dépôt) | https://motom-rca.vercel.app |
+| Back-office | `motom-admin` | https://motom-admin.vercel.app |
+
+Le BO est une application séparée : il ne contient aucun code serveur et joint l'API de
+ce dépôt via une réécriture Vercel (`/api/:path*`), ce qui garde le cookie de session
+first-party. Les anciennes URL `/admin` de ce site redirigent vers le BO.
+Le code du back-office (interface, sections, journal d'audit) ne se trouve plus ici.
 
 Le contenu reprend l'affiche officielle de l'agence (`docs/affiche-motom.jpg`).
 Les informations encore à confirmer sont listées dans `CONTENU-A-VALIDER.md`.
@@ -44,7 +56,7 @@ Les jetons sont définis dans `src/index.css` (`@theme`). Leurs noms historiques
 - `src/data/site.ts` — **identité de l'agence** (nom, slogans, téléphones, WhatsApp,
   adresse, e-mail, réseaux sociaux, NIU/RCCM). Un champ laissé vide n'est pas affiché.
 - `src/data/properties.ts`, `src/data/vehicles.ts` — types et formats de prix. Les
-  catalogues statiques sont vides : biens et voitures se publient depuis `/admin`.
+  catalogues statiques sont vides : biens et voitures se publient depuis le back-office.
 
 ## Démarrer le projet
 
@@ -73,5 +85,5 @@ que si `ADMIN_PASSWORD`, `SUPERADMIN_EMAIL` et `SUPERADMIN_USERNAME` sont défin
 Voir `.env.example` : `DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`,
 `SUPERADMIN_EMAIL`, `SUPERADMIN_USERNAME`, `CLOUDINARY_*` / `VITE_CLOUDINARY_CLOUD_NAME`
 (compte Cloudinary de MOTOM, dossier `motom/`), `RESEND_API_KEY` / `RESEND_FROM`,
-`PUBLIC_SITE_HOST` (domaine de production ; les hôtes `motom*.vercel.app` sont acceptés
-par défaut pour les liens d'invitation et de réinitialisation).
+`PUBLIC_SITE_HOST` (domaine de production), `ADMIN_URL` (URL du back-office, utilisée
+pour les liens d'invitation et de réinitialisation).

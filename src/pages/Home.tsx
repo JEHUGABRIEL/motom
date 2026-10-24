@@ -444,16 +444,7 @@ export default function Home() {
 
       {/* Rendez-vous */}
       <section className="bg-ink py-20 md:py-24">
-        <div className="container-page grid grid-cols-1 gap-12 lg:grid-cols-[0.62fr_0.85fr_1.2fr] lg:items-center lg:gap-10">
-          <div className="hidden overflow-hidden rounded-2xl bg-white/5 lg:block">
-            <img
-              src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80"
-              alt={t("contact.offices")}
-              className="aspect-[3/4] h-full w-full object-cover grayscale"
-              loading="lazy"
-            />
-          </div>
-
+        <div className="container-page grid grid-cols-1 gap-12 lg:grid-cols-[0.85fr_1.2fr] lg:items-center lg:gap-10">
           <div>
             <p className="font-display text-[0.9375rem] font-medium italic text-gold">
               {t("home.appointment.eyebrow")}

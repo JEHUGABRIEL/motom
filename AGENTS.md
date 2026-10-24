@@ -2,6 +2,8 @@
 
 French-first site and back-office for Agence Immobilière MOTOM (Bangui): React 19 + Vite 8 + Tailwind CSS v4 SPA, Vercel serverless API, Neon Postgres.
 
+Two repositories: **this one** (public site + `api/` + `migrations/`, deployed to `motom-rca.vercel.app`) and **`motom-admin`** (back-office SPA only, deployed to `motom-admin.vercel.app`). The BO has no serverless functions: its `vercel.json` rewrites `/api/:path*` to this deployment so the session cookie stays first-party. API contract changes must be mirrored in the BO's `src/lib/api.ts`.
+
 ## Commands
 
 - `npm install`
@@ -19,9 +21,9 @@ Baseline: `npm run lint` reports one pre-existing warning in `scripts/set-promo-
 
 ## Structure
 
-- `src/` is the SPA. `src/App.tsx` defines two layouts: `/admin*` omits Navbar/Footer; public routes use the shell. Routes are French.
+- `src/` is the public SPA. `src/App.tsx` renders every route inside the Navbar/Footer shell; routes are French. `/admin*` is no longer served here — `vercel.json` redirects it to the BO deployment.
 - `api/` contains Vercel functions, `lib/` shared server-only code, `migrations/` SQL, and `scripts/` one-off DB tools.
-- `src/pages/Admin.tsx` is the back-office shell (login, nav, section routing). The sections live in `src/admin/*` (`dashboard`, `properties`, `vehicles`, `messages`, `content`, `accounts`, `reviews`, `security`) with shared `types.ts`, `shared.tsx` and `format.ts`. Data goes through React Query hooks in `src/lib/api.ts`; only imperative auth flows (login, MFA challenge, invitation/reset acceptance, profile update) use raw `fetch`.
+- The back-office UI (login, nav, sections, audit log) lives in the **`motom-admin`** repository, not here. This repo only keeps its API surface. `src/lib/api.ts` here exposes public reads plus message creation; the BO has its own copy of that file with the admin hooks.
 - Routes are lazy-loaded in `src/App.tsx` (`React.lazy` + `Suspense`); `vite.config.ts` groups `node_modules` into `vendor`/`icons` chunks via `build.rolldownOptions.output.codeSplitting`.
 - `Vente.tsx`/`Location.tsx` and `VehiculesVente.tsx`/`VehiculesLocation.tsx` are 5-line wrappers. Edit `Properties.tsx`/`Vehicles.tsx` for catalog changes.
 - Construction, transport, déménagement, and décoration all render `PolePage.tsx`; their copy is `poles.<slug>` in i18n. `/services` reads the DB `services` table (fallback: `services.items`), so service-copy changes may need both places.
@@ -36,11 +38,11 @@ Baseline: `npm run lint` reports one pre-existing warning in `scripts/set-promo-
 - Catalog/service IDs are caller-supplied ASCII text (`admin-<timestamp>`, `demo-*`) validated by `isValidId`; there are no serial/UUID columns. Messages and reviews generate IDs server-side.
 - `gallery`, `features`, and `points` are JSONB; write them as `JSON.stringify(array)` like existing handlers. Image fields must be absolute `https://` URLs, not `/public` paths.
 - Adding a listing/vehicle field means touching the migration, INSERT handler, the `*_FIELDS` allowlist in the `[id].ts` handler, `serialize*` in `lib/db.ts`, the TS types, and the admin form.
-- API routing differs by resource: `properties`/`vehicles` use real `[id].ts` files; `messages`/`reviews`/`services`/`faqs` use `?id=` handlers plus rewrites in `vercel.json`; `/api/admins/[id].ts` multiplexes stats, me, login-events, the audit log (`/api/audit` rewrite) and the invite/reset flows. Follow the pattern of the resource you touch.
+- API routing differs by resource: `properties`/`vehicles` use real `[id].ts` files; `messages`/`reviews`/`services`/`faqs` use `?id=` handlers plus rewrites in `vercel.json`; `/api/admins/[id].ts` multiplexes stats, me, login-events, the audit log (`/api/audit` rewrite: GET list, DELETE purge `?beforeDays=N` with 0 = all, POST import `{ events: [...] }` capped at 5000) and the invite/reset flows. Follow the pattern of the resource you touch.
 - The Vercel **Hobby plan allows 12 serverless functions per deployment**. `api/` is at that limit: add new endpoints to an existing multiplexer file (plus a `vercel.json` rewrite) rather than creating a new `.ts` file.
 - Admin mutations call `requireAdmin`; admin-account management calls `requireSuperAdmin` (public invite/reset actions excepted). Keep checks on new handlers.
-- `SESSION_SECRET` signs sessions and derives the MFA encryption key: rotating it invalidates sessions and existing TOTP enrollments. `createRateLimiter` is in-memory per serverless instance; security lockouts live in Postgres.
-- Invite/reset links use `siteOrigin()`, which trusts only `PUBLIC_SITE_HOST` or `motom*.vercel.app`; set `PUBLIC_SITE_HOST` when testing those flows locally.
+- `SESSION_SECRET` signs sessions and derives the MFA encryption key: rotating it invalidates sessions and existing TOTP enrollments. Rate limiting is shared through Postgres (`createDbRateLimiter`, table `rate_limits`, migration 014); account lockouts live in Postgres too. `createRateLimiter` (in-memory) remains only as a fallback helper.
+- Invite/reset links point to the BO via `adminOrigin()` (`ADMIN_URL`, default `https://motom-admin.vercel.app`) and use the BO routes `/invite` and `/reset`. Set `ADMIN_URL` in Vercel; `siteOrigin()` (trusting `PUBLIC_SITE_HOST` or `motom*.vercel.app`) is still used for public-site absolutes.
 - Tailwind v4 has no `tailwind.config.*`; design tokens live in `src/index.css` `@theme`. The README color table is stale; use the CSS values.
 - `vercel.json` defines a strict CSP. Any new external script, font, frame, or browser API domain must be added to the matching directive, or it will fail only in production.
 - Keep server secrets server-only (`DATABASE_URL`, `SESSION_SECRET`, `CLOUDINARY_*`, `RESEND_*`). Only `VITE_*` values are public; add new variables to `.env.example` and Vercel.

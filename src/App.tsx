@@ -1,6 +1,6 @@
 import { Suspense, lazy, useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -9,8 +9,8 @@ import PromoBanner from "./components/PromoBanner";
 import ScrollToTop from "./components/ScrollToTop";
 import LoadingScreen from "./components/LoadingScreen";
 
-// Les pages sont chargées à la demande : le bundle d'entrée reste léger et
-// le back-office n'est téléchargé qu'à l'ouverture de /admin.
+// Les pages sont chargées à la demande : le bundle d'entrée reste léger.
+// Le back-office vit dans son propre dépôt (motom-admin) et n'est pas servi ici.
 const Home = lazy(() => import("./pages/Home"));
 const About = lazy(() => import("./pages/About"));
 const Vente = lazy(() => import("./pages/Vente"));
@@ -24,9 +24,6 @@ const Services = lazy(() => import("./pages/Services"));
 const PolePage = lazy(() => import("./pages/PolePage"));
 const Contact = lazy(() => import("./pages/Contact"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
-const Admin = lazy(() => import("./pages/Admin"));
-const AdminInvite = lazy(() => import("./pages/AdminInvite"));
-const AdminReset = lazy(() => import("./pages/AdminReset"));
 
 function PageFallback() {
   return (
@@ -47,8 +44,6 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  const location = useLocation();
-  const isAdmin = location.pathname.startsWith("/admin");
   const [loading, setLoading] = useState(true);
 
   
@@ -59,20 +54,6 @@ function App() {
 
   if (loading) {
     return <LoadingScreen />;
-  }
-
-  if (isAdmin) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <Suspense fallback={<LoadingScreen />}>
-          <Routes>
-            <Route path="/admin/invite" element={<AdminInvite />} />
-            <Route path="/admin/reset" element={<AdminReset />} />
-            <Route path="/admin" element={<Admin />} />
-          </Routes>
-        </Suspense>
-      </QueryClientProvider>
-    );
   }
 
   return (

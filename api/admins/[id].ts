@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { query } from "../../lib/db.js";
 import {
@@ -8,8 +8,8 @@ import {
   createSessionToken,
   sessionIssuedAt,
 } from "../../lib/auth.js";
-import { respondInternalError, siteOrigin } from "../../lib/http.js";
-import { createRateLimiter } from "../../lib/rate-limit.js";
+import { adminOrigin, respondInternalError } from "../../lib/http.js";
+import { createDbRateLimiter } from "../../lib/rate-limit.js";
 import { hashPassword, hashToken } from "../../lib/password.js";
 import { sendPasswordResetEmail } from "../../lib/email.js";
 import { recordAudit } from "../../lib/audit.js";
@@ -30,7 +30,23 @@ const ENTITY_TYPES = new Set([
   "message",
   "review",
   "media",
+  "audit",
 ]);
+
+const AUDIT_IMPORT_LIMIT = 5000;
+const AUDIT_METADATA_MAX_BYTES = 8000;
+
+const auditImportLimiter = createDbRateLimiter({
+  windowMs: 1000 * 60 * 60,
+  max: 10,
+  label: "audit-import",
+});
+
+const auditPurgeLimiter = createDbRateLimiter({
+  windowMs: 1000 * 60 * 60,
+  max: 5,
+  label: "audit-purge",
+});
 
 type AuditRow = {
   id: string;
@@ -87,6 +103,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return await handleAuditLog(req, res);
     }
 
+    // Purge du journal : réservée au super administrateur.
+    if (req.method === "DELETE" && String(req.query.id ?? "") === "audit") {
+      return await handleAuditPurge(req, res);
+    }
+
     if (req.method === "GET" && String(req.query.id ?? "") === "login-events") {
       return await handleLoginEvents(req, res);
     }
@@ -123,6 +144,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       if (route === "forgot-password") {
         return await handleForgotPassword(req, res, body);
+      }
+
+      // Import d'un journal exporté (sauvegarde / transfert d'environnement).
+      if (route === "audit") {
+        return await handleAuditImport(req, res, body);
       }
 
       return res.status(404).json({ error: "Adresse inconnue." });
@@ -405,7 +431,7 @@ async function handleAcceptInvite(
 }
 
 
-const forgotLimiter = createRateLimiter({
+const forgotLimiter = createDbRateLimiter({
   windowMs: 1000 * 60 * 15,
   max: 3,
   label: "forgot-password",
@@ -419,7 +445,7 @@ async function handleForgotPassword(
   res: VercelResponse,
   body: Record<string, unknown>
 ) {
-  if (!forgotLimiter(req, res)) return;
+  if (!(await forgotLimiter(req, res))) return;
 
   const email = String(body?.email ?? "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -478,7 +504,7 @@ async function handleForgotPassword(
     admin.id
   );
 
-  const url = resetUrl(req, token);
+  const url = resetUrl(token);
   const emailResult = await sendPasswordResetEmail({ to: email, resetUrl: url });
 
   await recordAudit({
@@ -493,8 +519,8 @@ async function handleForgotPassword(
 }
 
 
-function resetUrl(req: VercelRequest, token: string): string {
-  return `${siteOrigin(req)}/admin/reset?token=${encodeURIComponent(token)}`;
+function resetUrl(token: string): string {
+  return `${adminOrigin()}/reset?token=${encodeURIComponent(token)}`;
 }
 
 
@@ -556,7 +582,7 @@ async function handleResetTrigger(
     adminId
   );
 
-  const url = resetUrl(req, token);
+  const url = resetUrl(token);
   const emailResult = await sendPasswordResetEmail({ to: target[0].email, resetUrl: url });
 
   await recordAudit({
@@ -744,6 +770,187 @@ async function handleAuditLog(req: VercelRequest, res: VercelResponse) {
     pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
   });
+}
+
+type ImportedAuditEvent = {
+  id: string;
+  createdAt: string;
+  actorId: string | null;
+  actorEmail: string;
+  actorUsername: string | null;
+  actorRole: string | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  status: "success" | "failure";
+  ip: string;
+  userAgent: string;
+  metadata: string;
+};
+
+function importString(value: unknown, max: number): string {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+function normalizeImportedEvent(raw: unknown): ImportedAuditEvent | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const source = raw as Record<string, unknown>;
+
+  const action = importString(source.action, 100);
+  const entityType = importString(source.entityType ?? source.entity_type, 50);
+  if (!action || !entityType) return null;
+
+  const createdAtRaw = importString(source.createdAt ?? source.created_at, 40);
+  const createdAt = createdAtRaw ? new Date(createdAtRaw) : new Date();
+  if (Number.isNaN(createdAt.getTime())) return null;
+
+  const statusRaw = importString(source.status, 10).toLowerCase();
+  const status = statusRaw === "failure" ? "failure" : "success";
+
+  let metadata = "{}";
+  const metadataSource = source.metadata;
+  if (typeof metadataSource === "string" && metadataSource.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(metadataSource);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+      metadata = JSON.stringify(parsed);
+    } catch {
+      return null;
+    }
+  } else if (metadataSource && typeof metadataSource === "object" && !Array.isArray(metadataSource)) {
+    metadata = JSON.stringify(metadataSource);
+  } else if (metadataSource !== undefined && metadataSource !== null) {
+    return null;
+  }
+  if (metadata.length > AUDIT_METADATA_MAX_BYTES) return null;
+
+  const actorRaw =
+    source.actor && typeof source.actor === "object" && !Array.isArray(source.actor)
+      ? (source.actor as Record<string, unknown>)
+      : null;
+
+  return {
+    id: importString(source.id, 120) || `audit-${randomUUID()}`,
+    createdAt: createdAt.toISOString(),
+    actorId: importString(actorRaw?.id, 120) || null,
+    actorEmail: importString(actorRaw?.email, 200),
+    actorUsername: importString(actorRaw?.username, 120) || null,
+    actorRole: importString(actorRaw?.role, 40) || null,
+    action,
+    entityType,
+    entityId: importString(source.entityId ?? source.entity_id, 120) || null,
+    status,
+    ip: importString(source.ip, 64),
+    userAgent: importString(source.userAgent ?? source.user_agent, 512),
+    metadata,
+  };
+}
+
+async function handleAuditPurge(req: VercelRequest, res: VercelResponse) {
+  const admin = await requireSuperAdmin(req, res);
+  if (!admin) return;
+  if (!(await auditPurgeLimiter(req, res))) return;
+
+  const daysRaw = firstString(req.query.beforeDays).trim();
+  const parsed = daysRaw === "" ? 0 : Number.parseInt(daysRaw, 10);
+  const olderThanDays = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 36500) : 0;
+
+  const rows =
+    olderThanDays > 0
+      ? await query<{ id: string }>(
+          `DELETE FROM audit_log
+            WHERE created_at < NOW() - make_interval(days => $1)
+            RETURNING id`,
+          olderThanDays
+        )
+      : await query<{ id: string }>("DELETE FROM audit_log RETURNING id");
+
+  // L'événement de purge est écrit après la suppression : il reste donc consultable,
+  // même si l'historique complet vient d'être effacé.
+  await recordAudit({
+    action: "audit.purge",
+    entityType: "audit",
+    actor: admin,
+    req,
+    metadata: {
+      deleted: rows.length,
+      scope: olderThanDays > 0 ? `plus de ${olderThanDays} jours` : "tout l'historique",
+    },
+  });
+
+  return res.status(200).json({ success: true, deleted: rows.length, olderThanDays });
+}
+
+async function handleAuditImport(
+  req: VercelRequest,
+  res: VercelResponse,
+  body: unknown
+) {
+  const admin = await requireSuperAdmin(req, res);
+  if (!admin) return;
+  if (!(await auditImportLimiter(req, res))) return;
+
+  const source =
+    body && typeof body === "object" && !Array.isArray(body)
+      ? (body as { events?: unknown }).events
+      : undefined;
+
+  if (!Array.isArray(source)) {
+    return res.status(400).json({ error: "Format attendu : { \"events\": [ ... ] }" });
+  }
+  if (source.length === 0) {
+    return res.status(400).json({ error: "Aucun événement à importer." });
+  }
+  if (source.length > AUDIT_IMPORT_LIMIT) {
+    return res.status(413).json({
+      error: `Import limité à ${AUDIT_IMPORT_LIMIT} événements par requête.`,
+    });
+  }
+
+  const counts = { imported: 0, skipped: 0, invalid: 0 };
+
+  for (const raw of source) {
+    const event = normalizeImportedEvent(raw);
+    if (!event) {
+      counts.invalid += 1;
+      continue;
+    }
+
+    const rows = await query<{ id: string }>(
+      `INSERT INTO audit_log
+        (id, created_at, actor_id, actor_email, actor_username, actor_role,
+         action, entity_type, entity_id, status, ip, user_agent, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       ON CONFLICT (id) DO NOTHING
+       RETURNING id`,
+      event.id,
+      event.createdAt,
+      event.actorId,
+      event.actorEmail,
+      event.actorUsername,
+      event.actorRole,
+      event.action,
+      event.entityType,
+      event.entityId,
+      event.status,
+      event.ip,
+      event.userAgent,
+      event.metadata
+    );
+
+    if (rows.length > 0) counts.imported += 1;
+    else counts.skipped += 1;
+  }
+
+  await recordAudit({
+    action: "audit.import",
+    entityType: "audit",
+    actor: admin,
+    req,
+    metadata: counts,
+  });
+
+  return res.status(200).json({ success: true, ...counts });
 }
 
 async function handleStats(req: VercelRequest, res: VercelResponse) {

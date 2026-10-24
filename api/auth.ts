@@ -8,7 +8,7 @@ import {
   mfaPendingCookie,
   MFA_PENDING_SECONDS,
 } from "../lib/auth.js";
-import { createRateLimiter } from "../lib/rate-limit.js";
+import { createDbRateLimiter } from "../lib/rate-limit.js";
 import { respondInternalError } from "../lib/http.js";
 import { query } from "../lib/db.js";
 import { verifyPassword } from "../lib/password.js";
@@ -21,7 +21,7 @@ const MAX_LOGIN_ATTEMPTS = 8;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
 
 
-const loginLimiter = createRateLimiter({
+const loginLimiter = createDbRateLimiter({
   windowMs: 1000 * 60 * 15,
   max: 5,
   label: "login",
@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     
     if (req.method === "POST") {
-      if (!loginLimiter(req, res)) return;
+      if (!(await loginLimiter(req, res))) return;
 
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
       const identifier = String(body?.identifier ?? "").trim().toLowerCase();

@@ -1,5 +1,17 @@
 {
   "framework": "vite",
+  "redirects": [
+    {
+      "source": "/admin",
+      "destination": "https://motom-admin.vercel.app/",
+      "permanent": false
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "https://motom-admin.vercel.app/:path*",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     { "source": "/api/mfa", "destination": "/api/auth?mfa=1" },
     { "source": "/api/audit", "destination": "/api/admins/audit" },
