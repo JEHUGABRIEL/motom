@@ -19,7 +19,7 @@ import { formatVehiclePrice } from "../data/vehicles";
 import { useCreateMessage, useVehicle, useVehicles } from "../lib/api";
 import { formatPromoEnd, isPromoExpired } from "../lib/promo";
 import { site } from "../data/site";
-import VehicleCard from "../components/VehicleCard";
+import FeaturedVehicleCard from "../components/FeaturedVehicleCard";
 import Badge from "../components/Badge";
 import PromoCountdownChip from "../components/PromoCountdownChip";
 
@@ -363,7 +363,7 @@ export default function VehicleDetails() {
             </div>
             <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
               {similar.map((v) => (
-                <VehicleCard key={v.id} vehicle={v} />
+                <FeaturedVehicleCard key={v.id} vehicle={v} />
               ))}
             </div>
           </div>

@@ -11,7 +11,7 @@ import {
   Car,
   RotateCcw,
 } from "lucide-react";
-import VehicleCard from "../components/VehicleCard";
+import FeaturedVehicleCard from "../components/FeaturedVehicleCard";
 import FilterPill from "../components/FilterPill";
 import PageHero from "../components/PageHero";
 import CtaBand from "../components/CtaBand";
@@ -227,7 +227,7 @@ export default function Vehicles({ defaultType }: { defaultType?: string }) {
           ) : filtered.length > 0 ? (
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filtered.map((v) => (
-                <VehicleCard key={v.id} vehicle={v} />
+                <FeaturedVehicleCard key={v.id} vehicle={v} />
               ))}
             </div>
           ) : (
